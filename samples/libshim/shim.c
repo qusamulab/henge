@@ -1,3 +1,4 @@
+#define _GNU_SOURCE /* pipe2 */
 /* Exercises the pthread / errno / fd / liblog / ALooper / AConfiguration shims from Android
  * code. Each t_* returns 0 on success, else the number of the first failing step. */
 #include <android/configuration.h>
