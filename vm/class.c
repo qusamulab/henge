@@ -302,6 +302,18 @@ static Method *find_declared(Class *c, const char *sig)
     return NULL;
 }
 
+/* Same name and parameters, any return type: a call compiled against a covariant override
+ * (FloatBuffer.position(int) returning FloatBuffer) still finds the inherited method. */
+static Method *find_loose(Class *c, const char *sig)
+{
+    const char *close = strchr(sig, ')');
+    size_t n = close ? (size_t)(close - sig) + 1 : strlen(sig);
+    for (Class *k = c; k; k = k->super)
+        for (uint16_t i = 0; i < k->nmethods; i++)
+            if (strncmp(k->methods[i].sig, sig, n) == 0) return &k->methods[i];
+    return NULL;
+}
+
 static Method *find_in_hierarchy(Class *c, const char *sig)
 {
     for (Class *k = c; k; k = k->super) {
@@ -339,6 +351,7 @@ Method *vm_resolve_method(Thread *t, Dex *dex, uint32_t method_idx)
         dex->msigs[method_idx] = sig;
     }
     m = find_in_hierarchy(c, sig);
+    if (!m) m = find_loose(c, sig);
     if (!m && c->array_kind) /* methods on arrays (clone, getClass, ...) come from Object */
         m = find_in_hierarchy(t->vm->cls_object, sig);
     if (!m) {
@@ -389,6 +402,15 @@ Field *vm_resolve_field(Thread *t, Dex *dex, uint32_t field_idx)
     }
     dex->res_fields[field_idx] = f;
     return f;
+}
+
+uint32_t vm_field_offset(Class *c, const char *name)
+{
+    for (Class *k = c; k; k = k->super)
+        for (uint16_t i = 0; i < k->nfields; i++)
+            if (!(k->fields[i].access & ACC_STATIC) && strcmp(k->fields[i].name, name) == 0)
+                return k->fields[i].offset;
+    return UINT32_MAX;
 }
 
 /* ---- virtual dispatch ---- */
@@ -688,9 +710,10 @@ Ref vm_class_object(Thread *t, Class *c)
 
 /* ---- primitive classes (int.class, void.class, ...) ---- */
 
+static Class *prims[128];
+
 Class *vm_primitive_class(VM *vm, char desc)
 {
-    static Class *prims[128];
     if (prims[(int)desc])
         return prims[(int)desc];
     Class *c = calloc(1, sizeof *c);
@@ -760,11 +783,18 @@ VM *vm_create(void)
     vm->gc_threshold = 16u << 20;
     new_thread(vm);
     vm_register_core_natives(vm);
+    vm_register_android_natives(vm);
     size_t size;
     const uint8_t *core = vm_core_dex(&size);
     char err[256];
     if (vm_add_dex(vm, core, size, err, sizeof err) != 0) {
         fprintf(stderr, "henge-vm: core dex: %s\n", err);
+        return NULL;
+    }
+    size_t asize;
+    const uint8_t *adex = vm_android_dex(&asize);
+    if (adex && vm_add_dex(vm, adex, asize, err, sizeof err) != 0) {
+        fprintf(stderr, "henge-vm: android dex: %s\n", err);
         return NULL;
     }
     vm->cls_object = vm_find_class(vm, "Ljava/lang/Object;");
@@ -793,4 +823,27 @@ uint64_t vm_call_static(Thread *t, const char *cls, const char *name, const char
         return 0;
     }
     return vm_invoke(t, m, args);
+}
+
+/* Frees the heap and forgets every class, so another VM can be created in this process. Classes, dex
+ * tables and interned strings are leaked (a few hundred KB per run). */
+void vm_destroy(VM *vm)
+{
+    for (uint32_t r = 1; r < vm->table_size; r++)
+        if (((uintptr_t)vm->table[r] & 1) == 0)
+            free(vm->table[r]);
+    free(vm->table);
+    for (Thread *t = vm->threads; t;) {
+        Thread *n = t->next;
+        free(t->stack);
+        free(t);
+        t = n;
+    }
+    free(g_index.e);
+    memset(&g_index, 0, sizeof g_index);
+    memset(g_mcache, 0, sizeof g_mcache);
+    memset(prims, 0, sizeof prims);
+    g_vm = NULL;
+    pthread_mutex_destroy(&vm->lock);
+    free(vm);
 }

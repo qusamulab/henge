@@ -83,9 +83,9 @@ $(B)/libhenge-runtime.a: $(RUNTIME_OBJS)
 
 # ---- henge-vm: a Dalvik bytecode interpreter (vm/) with its own core class library (vm/core) ----
 VM_SRCS := $(wildcard vm/*.c)
-VM_OBJS := $(patsubst vm/%.c,$(B)/vm/%.o,$(VM_SRCS)) $(B)/vm/core_dex.o
+VM_OBJS := $(patsubst vm/%.c,$(B)/vm/%.o,$(VM_SRCS)) $(B)/vm/core_dex.o $(B)/vm/android_dex.o
 
-$(B)/vm/%.o: vm/%.c vm/vm.h
+$(B)/vm/%.o: vm/%.c vm/vm.h $(PUBLIC_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -Ivm -c $< -o $@
 
@@ -94,6 +94,13 @@ $(B)/vm/core_dex.c: vm/core/henge-core.dex scripts/embed-dex.py
 	python3 scripts/embed-dex.py $< $@ vm_core_dex
 
 $(B)/vm/core_dex.o: $(B)/vm/core_dex.c
+	$(CC) -std=c11 -O2 -c $< -o $@
+
+$(B)/vm/android_dex.c: vm/android/henge-android.dex scripts/embed-dex.py
+	@mkdir -p $(@D)
+	python3 scripts/embed-dex.py $< $@ vm_android_dex
+
+$(B)/vm/android_dex.o: $(B)/vm/android_dex.c
 	$(CC) -std=c11 -O2 -c $< -o $@
 
 $(B)/libhenge-vm.a: $(VM_OBJS)
@@ -221,9 +228,9 @@ $(B)/tests/test_cxx: tests/test_cxx.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -o $@
 
-$(B)/tests/test_vm: tests/test_vm.c $(B)/libhenge-vm.a
+$(B)/tests/test_vm: tests/test_vm.c $(B)/libhenge-vm.a $(B)/libhenge-runtime.a $(B)/libhenge-apk.a
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -I. $< $(B)/libhenge-vm.a -lm -o $@
+	$(CC) $(CFLAGS) -I. $< $(B)/libhenge-vm.a $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -lm -o $@
 
 $(B)/tests/test_layout: tests/test_layout.c $(PUBLIC_HEADERS)
 	@mkdir -p $(@D)
@@ -304,6 +311,7 @@ test-cxx: $(B)/tests/test_cxx $(B)/tests/libcxx.dylib ## C++ (libc++, exceptions
 test-vm: $(B)/tests/test_vm ## run Java test code on the henge-vm bytecode interpreter
 	$(B)/tests/test_vm vm/tests/vmtest.dex 'LVmTest;'
 	$(B)/tests/test_vm vm/tests/kttest.dex 'Lkt/KtTestKt;'
+	$(B)/tests/test_vm vm/tests/androidtest.dex 'LAndroidTest;'
 
 test-layout: $(B)/tests/test_layout $(B)/tests/libadd.dylib ## check the converted Mach-O layout
 	$(B)/tests/test_layout $(B)/samples/libadd.so $(B)/tests/libadd.dylib

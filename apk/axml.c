@@ -29,6 +29,12 @@
 #define ATTR_VERSION_CODE 0x0101021bu
 #define ATTR_VERSION_NAME 0x0101021cu
 #define ATTR_VALUE 0x01010024u
+
+static void resolve_class(const char *package, const char *name, char *out, size_t cap) {
+    if (name[0] == '.') snprintf(out, cap, "%s%s", package, name);
+    else if (!strchr(name, '.')) snprintf(out, cap, "%s.%s", package, name);
+    else snprintf(out, cap, "%s", name);
+}
 #define ATTR_TARGET_SDK 0x01010270u
 
 #define NO_INDEX 0xffffffffu
@@ -182,6 +188,8 @@ int henge_apk_read_manifest(const henge_apk *apk, struct henge_apk_manifest *m, 
     size_t total = ha_u32(buf + 4) < len ? ha_u32(buf + 4) : len;
 
     int depth = 0, native_depth = 0, have_lib_name = 0, seen_manifest = 0;
+    int activity_depth = 0, act_main = 0, act_launcher = 0;
+    char act_name[256] = "";
     for (size_t off = ha_u16(buf + 2); off + 8 <= total;) {
         const uint8_t *c = buf + off;
         uint16_t type = ha_u16(c), hsize = ha_u16(c + 2);
@@ -205,6 +213,11 @@ int henge_apk_read_manifest(const henge_apk *apk, struct henge_apk_manifest *m, 
             continue;
         }
         if (type == RES_XML_END_ELEMENT) {
+            if (activity_depth && depth == activity_depth) {
+                if (act_main && act_launcher && !m->launcher_activity[0] && act_name[0])
+                    resolve_class(m->package, act_name, m->launcher_activity, sizeof m->launcher_activity);
+                activity_depth = 0;
+            }
             if (depth == native_depth) native_depth = 0;
             if (depth > 0) depth--;
             continue;
@@ -228,6 +241,9 @@ int henge_apk_read_manifest(const henge_apk *apk, struct henge_apk_manifest *m, 
 
         int is_manifest = depth == 1 && strcmp(elem, "manifest") == 0;
         int is_activity = strcmp(elem, "activity") == 0;
+        int is_action = activity_depth && strcmp(elem, "action") == 0;
+        int is_category = activity_depth && strcmp(elem, "category") == 0;
+        if (is_activity) { activity_depth = depth; act_main = act_launcher = 0; act_name[0] = 0; }
         int is_meta = native_depth && strcmp(elem, "meta-data") == 0;
         char meta_name[64] = "", meta_value[sizeof m->lib_name] = "";
         int meta_has_value = 0;
@@ -253,8 +269,16 @@ int henge_apk_read_manifest(const henge_apk *apk, struct henge_apk_manifest *m, 
                     m->has_code = v != 0;
                 else if (attr_is(&x, a.name, ATTR_LABEL, "label"))
                     attr_str(&x, &a, m->label, sizeof m->label);
+            } else if (is_action || is_category) {
+                char v[96];
+                if (attr_is(&x, a.name, ATTR_NAME, "name") && attr_str(&x, &a, v, sizeof v) == 0) {
+                    if (is_action && strcmp(v, "android.intent.action.MAIN") == 0) act_main = 1;
+                    if (is_category && strcmp(v, "android.intent.category.LAUNCHER") == 0) act_launcher = 1;
+                }
             } else if (is_activity) {
-                char name[64];
+                char name[256];
+                if (attr_is(&x, a.name, ATTR_NAME, "name") && attr_str(&x, &a, name, sizeof name) == 0)
+                    snprintf(act_name, sizeof act_name, "%s", name);
                 if (attr_is(&x, a.name, ATTR_NAME, "name") && attr_str(&x, &a, name, sizeof name) == 0 &&
                     strcmp(name, "android.app.NativeActivity") == 0 && !native_depth) {
                     native_depth = depth;

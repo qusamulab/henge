@@ -24,6 +24,8 @@ public final class Class<T> {
 
     public native boolean isInterface();
 
+    public native T[] getEnumConstants();
+
     public native Class<? super T> getSuperclass();
 
     public native Class<?> getComponentType();

@@ -76,6 +76,7 @@ uint64_t vm_invoke(Thread *t, Method *m, uint32_t *args)
         vm_throw(t, (m->access & ACC_ABSTRACT) ? "Ljava/lang/AbstractMethodError;" : "Ljava/lang/UnsatisfiedLinkError;", msg);
         return 0;
     }
+    if (t->depth >= MAX_DEPTH - 3 && getenv("HENGE_VM_TRACE")) fprintf(stderr, "deep call: %s.%s\n", m->cls->name, m->sig);
     if (t->depth >= MAX_DEPTH || t->sp + m->registers + 8 > t->stack_end) {
         vm_throw(t, "Ljava/lang/StackOverflowError;", NULL);
         return 0;

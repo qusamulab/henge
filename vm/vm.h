@@ -192,6 +192,33 @@ Method *vm_resolve_method(Thread *t, Dex *dex, uint32_t method_idx);
 const char *vm_method_sig(Thread *t, Dex *dex, uint32_t method_idx);
 Field *vm_resolve_field(Thread *t, Dex *dex, uint32_t field_idx);
 
+uint32_t vm_field_offset(Class *cls, const char *name); /* instance field word offset, or UINT32_MAX */
+extern void (*vm_android_log)(int prio, const char *tag, const char *msg);
+extern void (*vm_asset_reader)(const char *name, uint8_t **data, size_t *size); /* assets/<name> of the running APK */
+void vm_register_android_natives(VM *vm);
+
+const uint8_t *vm_android_dex(size_t *size); /* henge-android.dex, embedded */
+void vm_destroy(VM *vm);
+
+/* ---- host: runs an APK's launcher Activity (Kotlin / Java) on the VM ---- */
+
+typedef struct vm_host vm_host;
+
+struct vm_host_opts {
+    const char *apk_path;
+    void *window;        /* struct ANativeWindow* (runtime/android.h) backing the GLSurfaceView */
+    int width, height;   /* window size in pixels */
+    void (*log)(int prio, const char *tag, const char *msg, void *user); /* android.util.Log and uncaught exceptions */
+    void *user;
+};
+
+/* Starts the activity on its own thread and returns once onCreate and the first surface callbacks have run
+ * (NULL with a message in err on failure). */
+vm_host *vm_host_start(const struct vm_host_opts *opts, char *err, size_t errlen);
+void vm_host_touch(vm_host *h, int phase, int id, float x, float y); /* phase: 0 down 1 move 2 up 3 cancel */
+void vm_host_stop(vm_host *h); /* onPause / onStop / onDestroy, joins the thread */
+int vm_host_running(vm_host *h);
+
 /* natives */
 void vm_register_native(VM *vm, const char *cls, const char *name, const char *proto, NativeFn fn);
 void vm_register_core_natives(VM *vm);

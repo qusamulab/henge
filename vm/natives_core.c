@@ -62,6 +62,14 @@ NATIVE(object_clone)
 
 NATIVE(object_notify) { UNUSED; return 0; }
 
+NATIVE(thread_sleep)
+{
+    (void)t;
+    uint64_t ms = vm_wide(a);
+    if (ms > 0) usleep((useconds_t)(ms > 3600000 ? 3600000000u : ms * 1000));
+    return 0;
+}
+
 NATIVE(object_wait)
 {
     uint64_t ms = vm_wide(&a[1]);
@@ -124,6 +132,17 @@ NATIVE(class_get_component_type)
 {
     Class *c = mirror_class(t, a[0]);
     return c->component ? vm_class_object(t, c->component) : 0;
+}
+
+NATIVE(class_enum_constants)
+{
+    Class *c = mirror_class(t, a[0]);
+    char proto[600];
+    snprintf(proto, sizeof proto, "()[%s", c->name);
+    Method *m = vm_find_method(c, "values", proto);
+    if (!m || !(m->access & ACC_STATIC)) return 0;
+    if (vm_init_class(t, c) != 0) return 0;
+    return vm_invoke(t, m, NULL);
 }
 
 NATIVE(class_hash_code) { return a[0] * 0x9E3779B1u >> 1; (void)t; }
@@ -746,6 +765,8 @@ void vm_register_core_natives(VM *vm)
     R("Ljava/lang/Class;", "getSuperclass", "()Ljava/lang/Class;", class_get_superclass);
     R("Ljava/lang/Class;", "getComponentType", "()Ljava/lang/Class;", class_get_component_type);
     R("Ljava/lang/Class;", "hashCode", "()I", class_hash_code);
+    R("Ljava/lang/Class;", "getEnumConstants", "()[Ljava/lang/Object;", class_enum_constants);
+    R("Ljava/lang/Thread;", "sleep", "(J)V", thread_sleep);
     R("Ljava/lang/Class;", "getPrimitiveClass", "(Ljava/lang/String;)Ljava/lang/Class;", class_get_primitive);
     R("Ljava/lang/reflect/Array;", "newInstance", "(Ljava/lang/Class;I)Ljava/lang/Object;", array_new_instance1);
     R("Ljava/lang/reflect/Array;", "newInstance", "(Ljava/lang/Class;[I)Ljava/lang/Object;", array_new_instance_n);
