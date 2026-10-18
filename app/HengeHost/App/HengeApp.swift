@@ -20,7 +20,8 @@ struct HengeApp: App {
                 .task {
                     guard let name = UserDefaults.standard.string(forKey: "convertRun"),
                           converter.state == .idle else { return }
-                    converter.run(apk: library.directory.appendingPathComponent(name))
+                    let seconds = UserDefaults.standard.double(forKey: "convertRunSeconds")
+                    converter.run(apk: library.directory.appendingPathComponent(name), stopAfter: seconds > 0 ? seconds : 1)
                 }
         }
     }

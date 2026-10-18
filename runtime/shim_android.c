@@ -21,8 +21,20 @@
 #define ANDROID_LOG_WARN 5
 #define ANDROID_LOG_ERROR 6
 
+static void (*g_log_sink)(int, const char *, const char *, void *);
+static void *g_log_sink_user;
+
+void henge_set_log_sink(void (*sink)(int, const char *, const char *, void *), void *user)
+{
+    g_log_sink_user = user;
+    __atomic_store_n(&g_log_sink, sink, __ATOMIC_RELEASE);
+}
+
 static void log_emit(int prio, const char *tag, const char *msg)
 {
+    void (*sink)(int, const char *, const char *, void *) = __atomic_load_n(&g_log_sink, __ATOMIC_ACQUIRE);
+    if (sink)
+        sink(prio, tag ? tag : "", msg, g_log_sink_user);
     os_log_type_t type = prio >= ANDROID_LOG_ERROR ? OS_LOG_TYPE_ERROR
                          : prio >= ANDROID_LOG_WARN ? OS_LOG_TYPE_DEFAULT
                                                     : OS_LOG_TYPE_INFO;

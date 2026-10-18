@@ -6,7 +6,7 @@
 | --- | --- | --- | --- | --- |
 | M0 | Set up the environment | Xcode, Android NDK, and an empty host app running on a device. NDK `.so` files build in `samples/` | 1–2 days | Mostly done: toolchain, `samples/`, host app on the simulator. Device run pending |
 | M1 | Call a function in a converted `.so` | [m1-elf-to-macho.md](m1-elf-to-macho.md) §7 | A few days to 1 week | Done: passes on macOS, the iOS Simulator and an iPhone |
-| M2 | libc compatibility shim and on-device signing | `.so` files using `malloc`, `printf`, `pthread`, and TLS work. Conversion through execution completes on the iPhone | A few weeks | In progress: patching, TLS, `DT_NEEDED`, pthread / errno / ALooper shims and a NativeActivity host work; signing with a developer identity on the device is missing |
+| M2 | libc compatibility shim and on-device signing | `.so` files using `malloc`, `printf`, `pthread`, and TLS work. Conversion through execution completes on the iPhone | A few weeks | In progress: patching, TLS, `DT_NEEDED`, pthread / errno / ALooper shims, a NativeActivity host and on-device signing work; an APK converted on the iPhone runs `android_main`. Missing: display, input, JNI |
 | M3 | Run NativeActivity | The NDK `native-activity` sample renders via ANGLE and responds to touch | 1–2 months | — |
 | M4 | Run a real game | One SDL2 or Godot game with no Java dependency is playable, with audio | Several months | — |
 | M5 | Support ART | The Activity of a simple Java-only app is displayed | Years | — |
@@ -19,7 +19,7 @@ Items whose design cannot be finalized until checked on a real device. Verify th
 | --- | --- | --- | --- | --- |
 | V1 | Is `TPIDR_EL0` free, and is it preserved across context switches and signals? | How TLS is implemented ([abi-differences.md](../research/abi-differences.md) §2) | M1 | — |
 | V2 | Does XNU preserve or clobber x18? | Whether to reject `.so` files that use x18 | M1 | — |
-| V3 | Can a dylib signed on the iPhone be `dlopen`ed from the container (with a free Apple ID certificate)? | The premise of the whole approach | Start of M2 | Partly: an **ad hoc** signed dylib is rejected (`code signature invalid`). A dylib signed on the Mac with the host app's team identity loads from the container (Debug build, no debugger attached). Signing on the device with the user's identity is not tried yet |
+| V3 | Can a dylib signed on the iPhone be `dlopen`ed from the container (with a free Apple ID certificate)? | The premise of the whole approach | Start of M2 | Yes with a developer identity of the app's team (paid program, Debug build, no debugger): a dylib signed **on the device** with the imported `.p12` loads from the container. An **ad hoc** signature is rejected (`code signature invalid`). A free Apple ID certificate is not tried |
 | V4 | Can newly signed dylibs be `dlopen`ed one after another in the same process? | Handling of code added at runtime ([architecture.md](architecture.md) §7) | M2 | Not yet: only one dylib at a time was loaded |
 | V5 | Does dyld accept a dylib with no libSystem dependency and empty chained fixups? | How the Mach-O is assembled | M1 | macOS, iOS Simulator and iPhone: accepted |
 | V6 | Is the `increased-memory-limit` entitlement available to free accounts? | Whether large games can be handled | M3 | — |

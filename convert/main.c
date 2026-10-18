@@ -9,7 +9,10 @@
 static void usage(void) {
     fprintf(stderr,
             "usage: henge-convert [--platform ios|iossim|macos] [--install-name NAME] [--libsystem]\n"
-            "                     [--sign] [-m manifest.json] -o out.dylib in.so\n"
+            "                     [--sign | --sign-identity NAME | --p12 FILE] [-m manifest.json] -o out.dylib in.so\n"
+            "       --sign           ad hoc signature\n"
+            "       --sign-identity  sign with the macOS keychain identity whose name contains NAME\n"
+            "       --p12            sign with a PKCS#12 identity (password in $HENGE_P12_PASSWORD)\n"
             "       henge-convert --check in.so...   (compatibility report; writes nothing)\n");
     exit(2);
 }
@@ -103,6 +106,7 @@ int main(int argc, char **argv) {
     struct henge_convert_opts opts = {.platform = HENGE_PLATFORM_IOS};
     const char *out_path = NULL, *manifest_path = NULL, *in_path = NULL, *install_name = NULL;
     int sign = 0;
+    const char *identity_name = NULL, *p12_path = NULL;
 
     if (argc > 1 && !strcmp(argv[1], "--check")) {
         if (argc < 3) usage();
@@ -122,6 +126,12 @@ int main(int argc, char **argv) {
         } else if (!strcmp(a, "--libsystem")) {
             opts.link_libsystem = 1;
         } else if (!strcmp(a, "--sign")) {
+            sign = 1;
+        } else if (!strcmp(a, "--sign-identity") && i + 1 < argc) {
+            identity_name = argv[++i];
+            sign = 1;
+        } else if (!strcmp(a, "--p12") && i + 1 < argc) {
+            p12_path = argv[++i];
             sign = 1;
         } else if (!strcmp(a, "-m") && i + 1 < argc) {
             manifest_path = argv[++i];
@@ -170,7 +180,25 @@ int main(int argc, char **argv) {
         snprintf(ident, sizeof ident, "%.*s", (int)strcspn(b, "."), b);
         uint8_t *signed_mo;
         size_t signed_size;
-        if (henge_sign_adhoc(res.macho, res.macho_size, ident, &signed_mo, &signed_size, err, sizeof err) != 0) {
+        struct henge_signer *signer = NULL;
+        if (identity_name) {
+            signer = henge_signer_from_keychain(identity_name, err, sizeof err);
+        } else if (p12_path) {
+            size_t p12_size;
+            uint8_t *p12 = read_file(p12_path, &p12_size);
+            if (!p12) { perror(p12_path); henge_convert_result_free(&res); return 1; }
+            signer = henge_signer_from_pkcs12(p12, p12_size, getenv("HENGE_P12_PASSWORD"), err, sizeof err);
+            free(p12);
+        }
+        if ((identity_name || p12_path) && !signer) {
+            fprintf(stderr, "henge-convert: %s\n", err);
+            henge_convert_result_free(&res);
+            return 1;
+        }
+        int sign_rc = signer ? henge_sign_identity(res.macho, res.macho_size, ident, signer, &signed_mo, &signed_size, err, sizeof err)
+                             : henge_sign_adhoc(res.macho, res.macho_size, ident, &signed_mo, &signed_size, err, sizeof err);
+        henge_signer_free(signer);
+        if (sign_rc != 0) {
             fprintf(stderr, "henge-convert: %s: signing failed: %s\n", in_path, err);
             henge_convert_result_free(&res);
             return 1;

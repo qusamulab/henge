@@ -97,4 +97,25 @@ char *hc_manifest_build(const struct elf_info *e, const struct henge_convert_opt
                         const struct scan_result *scan, const struct henge_symbol *imports,
                         size_t nimports);
 
+/* ---- sign.c / cms.c / apple_certs.c: signing with an identity ---- */
+
+extern const uint8_t hc_apple_wwdr_g3[];
+extern const size_t hc_apple_wwdr_g3_len;
+extern const uint8_t hc_apple_root[];
+extern const size_t hc_apple_root_len;
+
+/* What henge needs from the signer's certificate. */
+struct hc_cert_info {
+    char team_id[16]; /* subject OU */
+};
+
+/* Reads the subject OU out of an X.509 certificate (DER). */
+int hc_cert_info_parse(const uint8_t *cert, size_t len, struct hc_cert_info *out, char *err, size_t errlen);
+
+/* Builds the CMS SignedData (DER) for a CodeDirectory: Apple's signed attributes plus the signature
+ * from signer->sign. With dummy_sig the signature is zeros and the callback is not called (used to
+ * learn the size before the load command that records it is written). *out is malloc'd. */
+int hc_cms_build(const struct henge_signer *signer, const uint8_t *cd, size_t cd_len, int dummy_sig,
+                 uint8_t **out, size_t *out_len, char *err, size_t errlen);
+
 #endif

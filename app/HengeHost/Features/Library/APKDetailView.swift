@@ -34,19 +34,34 @@ struct APKDetailView: View {
             }
 
             Section {
-                Button {
-                    converter.run(apk: apk.url)
-                } label: {
-                    Label(converter.state == .running ? "Running\u{2026}" : "Convert & Run", systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
+                if converter.state == .active {
+                    Button(role: .destructive) {
+                        converter.stop()
+                    } label: {
+                        Label("Stop", systemImage: "stop.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                } else {
+                    Button {
+                        converter.run(apk: apk.url)
+                    } label: {
+                        Label(converter.state == .running ? "Running\u{2026}" : "Convert & Run", systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(converter.state == .running)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(converter.state == .running)
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
             } footer: {
-                Text("Extracts lib/arm64-v8a/*.so from the APK, converts and signs it, then loads it.")
+                Text(converter.state == .active
+                     ? "The app's android_main is running. There is no display yet, so its log lines are shown below."
+                     : "Extracts lib/arm64-v8a/*.so from the APK, converts and signs it, then loads and starts it.")
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
                     .padding(.top, 4)

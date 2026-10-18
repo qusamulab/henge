@@ -43,7 +43,7 @@ APP_DD  := $(B)/app/dd
 APP_OUT := $(APP_DD)/Build/Products/Debug-iphonesimulator/henge.app
 
 .DEFAULT_GOAL := all
-.PHONY: all help samples samples-apk tests test test-layout test-m1 test-patch test-dl test-shim test-activity test-apk app-dylib app app-run clean
+.PHONY: all help samples samples-apk tests test test-layout test-m1 test-patch test-dl test-shim test-activity test-sign test-apk app-dylib app app-run clean
 
 all: $(B)/henge-convert $(B)/henge-apk $(B)/libhenge-runtime.a samples tests ## build the tools, runtime, sample and tests
 
@@ -66,7 +66,7 @@ $(B)/libhenge-convert.a: $(CONVERT_LIB_OBJS)
 
 # The CLI links the runtime only for henge_shim_provides (--check reports).
 $(B)/henge-convert: convert/main.c $(B)/libhenge-convert.a $(B)/libhenge-runtime.a $(PUBLIC_HEADERS)
-	$(CC) $(CFLAGS) $< $(B)/libhenge-convert.a $(B)/libhenge-runtime.a -o $@
+	$(CC) $(CFLAGS) $< $(B)/libhenge-convert.a $(B)/libhenge-runtime.a -framework Security -framework CoreFoundation -o $@
 
 $(B)/runtime/%.o: runtime/%.c $(RUNTIME_HEADERS)
 	@mkdir -p $(@D)
@@ -231,6 +231,17 @@ $(B)/tests/libnative.dylib: $(B)/samples/libnative.so $(B)/henge-convert
 test-activity: $(B)/tests/test_activity $(B)/tests/libnative.dylib ## run a native_app_glue NativeActivity through the host on macOS
 	$(B)/tests/test_activity $(B)/tests/libnative.dylib
 
+# Needs a code signing identity in the keychain (Apple Development / Developer ID); skipped without one.
+SIGN_IDENTITY ?= Apple Development
+test-sign: $(B)/henge-convert $(B)/samples/libadd.so ## sign with a keychain identity and check it with codesign (skipped without one)
+	@if security find-identity -v -p codesigning | grep -q "$(SIGN_IDENTITY)"; then \
+	  mkdir -p $(B)/tests && \
+	  $(B)/henge-convert --platform macos --sign-identity "$(SIGN_IDENTITY)" -o $(B)/tests/libadd.signed.dylib $(B)/samples/libadd.so && \
+	  codesign --verify --strict -vvv $(B)/tests/libadd.signed.dylib && \
+	  codesign -dvvv $(B)/tests/libadd.signed.dylib 2>&1 | grep -E "TeamIdentifier|Authority" && \
+	  echo "PASS: test_sign"; \
+	else echo "SKIP: test_sign (no '$(SIGN_IDENTITY)' identity in the keychain)"; fi
+
 test-layout: $(B)/tests/test_layout $(B)/tests/libadd.dylib ## check the converted Mach-O layout
 	$(B)/tests/test_layout $(B)/samples/libadd.so $(B)/tests/libadd.dylib
 
@@ -241,7 +252,7 @@ test-apk: $(B)/tests/test_apk $(B)/samples/sample.apk $(B)/henge-apk ## read the
 	$(B)/tests/test_apk $(B)/samples/sample.apk $(B)/samples/libadd.so samples/apk/hello.txt
 	$(B)/henge-apk info $(B)/samples/sample.apk
 
-test: test-layout test-m1 test-patch test-dl test-shim test-activity test-apk ## run all macOS tests
+test: test-layout test-m1 test-patch test-dl test-shim test-activity test-sign test-apk ## run all macOS tests
 	@echo "ALL TESTS PASSED"
 
 # ---- iOS host app (app/) ----

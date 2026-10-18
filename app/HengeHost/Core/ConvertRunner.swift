@@ -1,78 +1,127 @@
 import Foundation
 import os
 
-/// Result of one Convert & Run.
-struct ConvertReport: Sendable {
-    var lines: [String] = []
-    var failures = 0
+/// APK -> lib/arm64-v8a/*.so -> Mach-O (henge_convert) -> signature with the imported developer identity
+/// -> dlopen + henge_link -> (NativeActivity: android_main keeps running until stopped), all inside the
+/// app. Mirrors what `henge-apk extract` + `henge-convert --sign-identity` + test_m1 do on the Mac.
+@MainActor
+final class ConvertRunner: ObservableObject {
+    enum State { case idle, running, active, finished }
+
+    @Published private(set) var state: State = .idle
+    @Published private(set) var lines: [String] = []
+    @Published private(set) var failures = 0
+
+    private var activity: OpaquePointer?
+    private var autoStop: Task<Void, Never>?
+
     /// Exactly `PASS: convert-run (0 failures)` / `FAIL: convert-run (N failures)`; scripts grep for it.
     var summaryLine: String {
         "\(failures == 0 ? "PASS" : "FAIL"): convert-run (\(failures) failure\(failures == 1 ? "" : "s"))"
     }
-}
 
-/// APK -> lib/arm64-v8a/*.so -> Mach-O (henge_convert) -> ad hoc signature -> dlopen + henge_link,
-/// all inside the app. Mirrors what `henge-apk extract` + `henge-convert --sign` + test_m1 do on the Mac.
-@MainActor
-final class ConvertRunner: ObservableObject {
-    enum State { case idle, running, finished }
+    var logText: String { (lines + (state == .finished ? [summaryLine] : [])).joined(separator: "\n") }
 
-    @Published private(set) var state: State = .idle
-    @Published private(set) var report = ConvertReport()
-
-    var logText: String {
-        (report.lines + (state == .finished ? [report.summaryLine] : [])).joined(separator: "\n")
-    }
-
-    func run(apk: URL) {
-        guard state != .running else { return }
+    /// Converts and loads the APK. A NativeActivity then keeps running (state .active) until `stop()`;
+    /// with `stopAfter` it is stopped automatically (for runs driven from a script).
+    func run(apk: URL, stopAfter: TimeInterval? = nil) {
+        guard state != .running, state != .active else { return }
         state = .running
-        report = ConvertReport()
+        lines = []
+        failures = 0
+        let session = ConvertSession(apk: apk) { [weak self] line, failed in
+            DispatchQueue.main.async { self?.append(line, failed: failed) }
+        }
         Task.detached(priority: .userInitiated) {
-            let result = ConvertSession(apk: apk).run()
+            let activity = session.run()
             await MainActor.run {
-                self.report = result
-                self.state = .finished
+                self.activity = activity
+                if activity != nil {
+                    self.state = .active
+                    if let stopAfter {
+                        self.autoStop = Task { [weak self] in
+                            try? await Task.sleep(nanoseconds: UInt64(stopAfter * 1e9))
+                            self?.stop()
+                        }
+                    }
+                } else {
+                    self.finish()
+                }
             }
         }
     }
+
+    /// Drives the running NativeActivity down (onPause ... onDestroy).
+    func stop() {
+        guard state == .active, let activity else { return }
+        autoStop?.cancel()
+        self.activity = nil
+        state = .running
+        Task.detached(priority: .userInitiated) {
+            henge_activity_stop(activity)
+            await MainActor.run {
+                self.append("PASS  henge_activity_stop (onDestroy returned, android_main exited)", failed: false)
+                self.finish()
+            }
+        }
+    }
+
+    private func finish() {
+        state = .finished
+        print(summaryLine)
+        fflush(stdout)
+    }
+
+    private func append(_ line: String, failed: Bool) {
+        if state == .running || state == .active { print(line) }
+        lines.append(line)
+        if failed { failures += 1 }
+    }
 }
 
+/// One conversion + load, on a background thread. Reports each line through `emit`.
 private final class ConvertSession {
     private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "henge", category: "convert-run")
 
     private let apk: URL
-    private var report = ConvertReport()
+    private let sink: (String, Bool) -> Void
+    private var signer: SigningStore.Signer?
 
-    init(apk: URL) { self.apk = apk }
+    init(apk: URL, sink: @escaping (String, Bool) -> Void) {
+        self.apk = apk
+        self.sink = sink
+    }
 
-    private func emit(_ line: String) {
+    private func emit(_ line: String, failed: Bool = false) {
         print(line)
         Self.log.log("\(line, privacy: .public)")
-        report.lines.append(line)
+        sink(line, failed)
     }
 
     private func pass(_ line: String) { emit("PASS  \(line)") }
-
-    private func fail(_ line: String) {
-        report.failures += 1
-        emit("FAIL  \(line)")
-    }
-
+    private func fail(_ line: String) { emit("FAIL  \(line)", failed: true) }
     private func cString(_ buf: [CChar]) -> String { String(cString: buf) }
 
-    func run() -> ConvertReport {
-        body()
-        emit(report.summaryLine)
-        fflush(stdout)
-        return report
+    /// Returns the running NativeActivity, if the APK is one.
+    func run() -> OpaquePointer? {
+        signer = SigningStore.loadSigner()
+        defer {
+            signer?.free()
+            fflush(stdout)
+        }
+        if let signer {
+            pass("signing identity: \(signer.summary)")
+        } else {
+            emit("note  no signing identity imported (Signing tab): libraries get an ad hoc signature, which iOS rejects")
+        }
+        return body()
     }
 
-    private func body() {
+    private func body() -> OpaquePointer? {
         var err = [CChar](repeating: 0, count: 512)
         guard let handle = henge_apk_open(apk.path, &err, err.count) else {
             fail("henge_apk_open(\(apk.lastPathComponent)): \(cString(err))")
-            return
+            return nil
         }
         defer { henge_apk_close(handle) }
         pass("henge_apk_open(\(apk.lastPathComponent))")
@@ -80,7 +129,7 @@ private final class ConvertSession {
         var manifest = henge_apk_manifest()
         guard henge_apk_read_manifest(handle, &manifest, &err, err.count) == 0 else {
             fail("henge_apk_read_manifest: \(cString(err))")
-            return
+            return nil
         }
         let package = withUnsafePointer(to: &manifest.package) {
             $0.withMemoryRebound(to: CChar.self, capacity: 256) { String(cString: $0) }
@@ -91,73 +140,76 @@ private final class ConvertSession {
         var n = 0
         guard henge_apk_native_libs(handle, "arm64-v8a", &idx, &n) == 0, n > 0, let idx else {
             fail("no lib/arm64-v8a/*.so in the APK")
-            return
+            return nil
         }
         defer { free(idx) }
 
         let fm = FileManager.default
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("henge/run/\(package)", isDirectory: true)
-        // `-usePrebuilt 1`: keep dylibs already in the run directory (signed on the Mac with a
-        // developer identity) instead of converting; on-device identity signing isn't implemented, and
-        // iOS rejects the ad hoc signature henge_sign_adhoc produces for libraries loaded from the container.
+        // `-usePrebuilt 1`: keep dylibs already in the run directory (signed on the Mac) instead of converting.
         let usePrebuilt = UserDefaults.standard.bool(forKey: "usePrebuilt")
         if !usePrebuilt { try? fm.removeItem(at: dir) }
         do { try fm.createDirectory(at: dir, withIntermediateDirectories: true) } catch {
             fail("create \(dir.path): \(error.localizedDescription)")
-            return
+            return nil
         }
 
+        let mainLib = "lib\(libName(&manifest)).so"
         var firstSo: String?
         for k in 0..<n {
             let i = idx[k]
             guard let cname = henge_apk_name(handle, i) else { continue }
             let soName = (String(cString: cname) as NSString).lastPathComponent
+            let stem = soName.hasSuffix(".so") ? String(soName.dropLast(3)) : soName
+            let out = dir.appendingPathComponent("\(stem).dylib")
+            if firstSo == nil || (manifest.native_activity != 0 && soName == mainLib) { firstSo = soName }
+            if usePrebuilt && fm.fileExists(atPath: out.path) {
+                pass("prebuilt \(stem).dylib")
+                continue
+            }
             var elf: UnsafeMutablePointer<UInt8>?
             var elfSize = 0
             guard henge_apk_extract(handle, i, &elf, &elfSize, &err, err.count) == 0, let elf else {
                 fail("extract \(soName): \(cString(err))")
-                return
+                return nil
             }
             defer { free(elf) }
-
-            let stem = soName.hasSuffix(".so") ? String(soName.dropLast(3)) : soName
-            let out = dir.appendingPathComponent("\(stem).dylib")
-            if usePrebuilt && fm.fileExists(atPath: out.path) {
-                pass("prebuilt \(stem).dylib")
-                if firstSo == nil || (manifest.native_activity != 0 && soName == "lib\(libName(&manifest)).so") {
-                    firstSo = soName
-                }
-                continue
-            }
-            guard let macho = convert(elf: elf, size: elfSize, soName: soName, stem: stem) else { return }
+            guard let macho = convert(elf: elf, size: elfSize, soName: soName, stem: stem) else { return nil }
             do { try macho.write(to: out) } catch {
                 fail("write \(out.lastPathComponent): \(error.localizedDescription)")
-                return
-            }
-            if firstSo == nil || (manifest.native_activity != 0 && soName == "lib\(libName(&manifest)).so") {
-                firstSo = soName
+                return nil
             }
         }
-        guard let target = firstSo else { return }
+        guard let target = firstSo else { return nil }
+
+        // Android code's log lines show up in the result.
+        let box = Unmanaged.passRetained(LogBox(emit: { [weak self] in self?.emit($0) }))
+        henge_set_log_sink({ _, tag, msg, user in
+            let box = Unmanaged<LogBox>.fromOpaque(user!).takeUnretainedValue()
+            box.emit("[\(String(cString: tag!))] \(String(cString: msg!))")
+        }, box.toOpaque())
 
         henge_set_library_path(dir.path)
         guard let img = henge_load(target, &err, err.count) else {
             let msg = cString(err)
             fail("henge_load(\(target)): \(msg)")
             if msg.contains("code signature invalid") {
-                emit("      iOS rejects the ad hoc signature henge puts on a converted library: loading from the app")
-                emit("      container needs your developer identity, and signing with it on the device is not")
-                emit("      implemented yet. Sign the dylib on the Mac and launch with -usePrebuilt 1 (see README).")
+                emit("      iOS rejected the signature. Libraries in the app container must be signed by your developer")
+                emit("      team: import your .p12 in the Signing tab, then run again.")
             }
-            return
+            return nil
         }
         pass("henge_load(\(target))")
 
         // A NativeActivity library: play the framework and run android_main.
         if henge_dlsym(img, "ANativeActivity_onCreate") != nil {
-            runActivity(img, dataDir: dir)
-            return
+            guard let activity = henge_activity_start(img, dir.path, &err, err.count) else {
+                fail("henge_activity_start: \(cString(err))")
+                return nil
+            }
+            pass("henge_activity_start (ANativeActivity_onCreate returned, android_main is running)")
+            return activity
         }
 
         // The sample APK's libadd: call into the original Android code.
@@ -168,19 +220,12 @@ private final class ConvertSession {
         } else {
             pass("no `add` export; skipped the sample call")
         }
+        return nil
     }
 
-    private func runActivity(_ img: OpaquePointer, dataDir: URL) {
-        var err = [CChar](repeating: 0, count: 512)
-        guard let activity = henge_activity_start(img, dataDir.path, &err, err.count) else {
-            fail("henge_activity_start: \(cString(err))")
-            return
-        }
-        pass("henge_activity_start (ANativeActivity_onCreate returned, android_main is running)")
-        // Let the app thread process the lifecycle commands before tearing it down.
-        Thread.sleep(forTimeInterval: 0.5)
-        henge_activity_stop(activity)
-        pass("henge_activity_stop (onDestroy returned, android_main exited)")
+    private final class LogBox {
+        let emit: (String) -> Void
+        init(emit: @escaping (String) -> Void) { self.emit = emit }
     }
 
     private func libName(_ m: inout henge_apk_manifest) -> String {
@@ -189,7 +234,7 @@ private final class ConvertSession {
         }
     }
 
-    /// henge_convert + ad hoc signature. Returns the signed Mach-O.
+    /// henge_convert + signature. Returns the signed Mach-O.
     private func convert(elf: UnsafeMutablePointer<UInt8>, size: Int, soName: String, stem: String) -> Data? {
         var err = [CChar](repeating: 0, count: 512)
         var result = henge_convert_result()
@@ -205,9 +250,11 @@ private final class ConvertSession {
 
         var signed: UnsafeMutablePointer<UInt8>?
         var signedSize = 0
-        guard henge_sign_adhoc(result.macho, result.macho_size, stem, &signed, &signedSize, &err, err.count) == 0,
-              let signed else {
-            fail("henge_sign_adhoc(\(soName)): \(cString(err))")
+        let rc2: Int32 = signer.map {
+            henge_sign_identity(result.macho, result.macho_size, stem, $0.pointer, &signed, &signedSize, &err, err.count)
+        } ?? henge_sign_adhoc(result.macho, result.macho_size, stem, &signed, &signedSize, &err, err.count)
+        guard rc2 == 0, let signed else {
+            fail("sign \(soName): \(cString(err))")
             return nil
         }
         pass("convert+sign \(soName) -> \(stem).dylib (\(signedSize) bytes, svc \(result.svc_count), tpidr_el0 \(result.tpidr_count) patched)")
