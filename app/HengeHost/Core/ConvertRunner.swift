@@ -143,7 +143,13 @@ private final class ConvertSession {
 
         henge_set_library_path(dir.path)
         guard let img = henge_load(target, &err, err.count) else {
-            fail("henge_load(\(target)): \(cString(err))")
+            let msg = cString(err)
+            fail("henge_load(\(target)): \(msg)")
+            if msg.contains("code signature invalid") {
+                emit("      iOS rejects the ad hoc signature henge puts on a converted library: loading from the app")
+                emit("      container needs your developer identity, and signing with it on the device is not")
+                emit("      implemented yet. Sign the dylib on the Mac and launch with -usePrebuilt 1 (see README).")
+            }
             return
         }
         pass("henge_load(\(target))")
