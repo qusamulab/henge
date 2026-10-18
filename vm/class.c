@@ -281,7 +281,7 @@ Class *vm_find_class(VM *vm, const char *descriptor)
     return load_class(vm, e->name, e->dex, e->def);
 }
 
-Class *vm_resolve_type(Thread *t, Dex *dex, uint32_t type_idx)
+Class *vm_resolve_type_slow(Thread *t, Dex *dex, uint32_t type_idx)
 {
     Class *c = dex->classes_by_type[type_idx];
     if (c)
@@ -336,7 +336,7 @@ Method *vm_find_method(Class *cls, const char *name, const char *proto)
 }
 
 /* Resolves the method a method_id names (declared in, or inherited by, the named class). */
-Method *vm_resolve_method(Thread *t, Dex *dex, uint32_t method_idx)
+Method *vm_resolve_method_slow(Thread *t, Dex *dex, uint32_t method_idx)
 {
     Method *m = dex->res_methods[method_idx];
     if (m)
@@ -376,7 +376,7 @@ const char *vm_method_sig(Thread *t, Dex *dex, uint32_t method_idx)
 }
 
 /* Field resolution: declared in the named class or inherited. */
-Field *vm_resolve_field(Thread *t, Dex *dex, uint32_t field_idx)
+Field *vm_resolve_field_slow(Thread *t, Dex *dex, uint32_t field_idx)
 {
     Field *f = dex->res_fields[field_idx];
     if (f)
@@ -445,6 +445,12 @@ int vm_instance_of(Class *k, Class *target)
         if (!k->component || !target->component)
             return k->component == target->component;
         return vm_instance_of(k->component, target->component);
+    }
+    if (!(target->access & ACC_INTERFACE)) { /* a class can only be reached through super */
+        for (Class *c = k; c; c = c->super)
+            if (c == target)
+                return 1;
+        return 0;
     }
     for (Class *c = k; c; c = c->super) {
         if (c == target)
@@ -746,16 +752,13 @@ void vm_throw(Thread *t, const char *desc, const char *msg)
     if (ctor && msg) {
         uint32_t args[2] = {o, vm_new_string_utf8(t, msg)};
         vm_invoke(t, ctor, args);
-        if (t->exception)
-            return;
     } else if ((ctor = vm_find_method(c, "<init>", "()V"))) {
         uint32_t args[1] = {o};
         vm_invoke(t, ctor, args);
-        if (t->exception)
-            return;
     }
     vm->npins--; /* unpin */
-    t->exception = o;
+    if (!t->exception) /* else the constructor's own exception wins */
+        t->exception = o;
 }
 
 /* ---- VM ---- */
@@ -781,6 +784,7 @@ VM *vm_create(void)
     g_vm = vm;
     pthread_mutex_init(&vm->lock, NULL);
     vm->gc_threshold = 16u << 20;
+    vm->sig_to_string = vm_intern(vm, "toString()Ljava/lang/String;");
     new_thread(vm);
     vm_register_core_natives(vm);
     vm_register_android_natives(vm);
@@ -844,6 +848,7 @@ void vm_destroy(VM *vm)
     memset(g_mcache, 0, sizeof g_mcache);
     memset(prims, 0, sizeof prims);
     g_vm = NULL;
+    free(vm->string_index);
     pthread_mutex_destroy(&vm->lock);
     free(vm);
 }
