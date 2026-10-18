@@ -15,7 +15,6 @@ extern void *henge_shim_lookup(const char *name);
 void (*vm_android_log)(int prio, const char *tag, const char *msg);
 void (*vm_asset_reader)(const char *name, uint8_t **data, size_t *size);
 
-static float u2f(uint32_t v) { float f; memcpy(&f, &v, 4); return f; }
 static Object *obj(Thread *t, Ref r) { return vm_obj(t->vm, r); }
 
 /* Looks a function up once per call site. */

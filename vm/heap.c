@@ -10,24 +10,6 @@
 
 static int is_free_slot(Object *p) { return ((uintptr_t)p & 1) != 0; }
 
-static uint32_t elem_size(char kind)
-{
-    switch (kind) {
-    case 'Z': case 'B': return 1;
-    case 'S': case 'C': return 2;
-    case 'J': case 'D': return 8;
-    default: return 4;
-    }
-}
-
-Object *vm_obj(VM *vm, Ref r)
-{
-    if (r == 0 || r >= vm->table_size)
-        return NULL;
-    Object *o = vm->table[r];
-    return is_free_slot(o) ? NULL : o;
-}
-
 static Ref table_add(VM *vm, Object *o)
 {
     if (vm->free_head) {
@@ -75,7 +57,7 @@ Ref vm_new_object(Thread *t, Class *cls)
 Ref vm_new_array(Thread *t, Class *array_cls, uint32_t length)
 {
     VM *vm = t->vm;
-    uint64_t bytes = (uint64_t)length * elem_size(array_cls->array_kind);
+    uint64_t bytes = (uint64_t)length * vm_elem_size(array_cls->array_kind);
     if (bytes > (1u << 30)) {
         vm_throw(t, "Ljava/lang/OutOfMemoryError;", "array too large");
         return 0;
@@ -157,27 +139,51 @@ char *vm_string_utf8(VM *vm, Ref r)
     return out;
 }
 
-static uint32_t string_hash(Object *o)
+/* Like Java, 0 means "not computed yet", so a string whose hash is 0 is rehashed each time. */
+uint32_t vm_string_hash(Object *s)
 {
-    if (!o->hash) {
-        uint32_t h = 0;
-        for (uint32_t i = 0; i < o->length; i++) h = 31 * h + o->u.chars[i];
-        o->hash = h ? h : 1;
+    uint32_t h = s->hash;
+    if (!h) {
+        for (uint32_t i = 0; i < s->length; i++) h = 31 * h + s->u.chars[i];
+        s->hash = h;
     }
-    return o->hash;
+    return h;
 }
 
-/* Interns a String: equal contents give the same Ref. */
+/* Slot in string_index for contents equal to o: the matching Ref, or an empty (0) slot. */
+static Ref *string_slot(VM *vm, Object *o, uint32_t h)
+{
+    size_t mask = vm->cap_string_index - 1;
+    for (size_t k = h & mask;; k = (k + 1) & mask) {
+        Ref *slot = &vm->string_index[k];
+        Object *p = vm_obj(vm, *slot);
+        if (!p || (p->length == o->length && vm_string_hash(p) == h && memcmp(p->u.chars, o->u.chars, (size_t)o->length * 2) == 0))
+            return slot;
+    }
+}
+
+/* Interns a String: equal contents give the same Ref. Interned strings stay rooted in string_pool,
+ * so string_index never holds a dead handle. */
 Ref vm_intern_string(Thread *t, Ref s)
 {
     VM *vm = t->vm;
-    Object *o = vm_obj(vm, s);
-    uint32_t h = string_hash(o);
-    for (size_t i = 0; i < vm->nstring_pool; i++) {
-        Object *p = vm_obj(vm, vm->string_pool[i]);
-        if (p && p->length == o->length && string_hash(p) == h && memcmp(p->u.chars, o->u.chars, (size_t)o->length * 2) == 0)
-            return vm->string_pool[i];
+    if ((vm->nstring_pool + 1) * 2 > vm->cap_string_index) {
+        size_t cap = vm->cap_string_index ? vm->cap_string_index * 2 : 1024;
+        free(vm->string_index);
+        vm->string_index = calloc(cap, sizeof *vm->string_index);
+        if (!vm->string_index)
+            abort();
+        vm->cap_string_index = cap;
+        for (size_t i = 0; i < vm->nstring_pool; i++) {
+            Object *p = vm_obj(vm, vm->string_pool[i]);
+            *string_slot(vm, p, vm_string_hash(p)) = vm->string_pool[i];
+        }
     }
+    Object *o = vm_obj(vm, s);
+    Ref *slot = string_slot(vm, o, vm_string_hash(o));
+    if (*slot)
+        return *slot;
+    *slot = s;
     if (vm->nstring_pool == vm->cap_string_pool) {
         vm->cap_string_pool = vm->cap_string_pool ? vm->cap_string_pool * 2 : 256;
         vm->string_pool = realloc(vm->string_pool, vm->cap_string_pool * sizeof *vm->string_pool);
@@ -250,10 +256,8 @@ void vm_gc(Thread *self)
         }
     }
     for (size_t i = 0; i < vm->npins; i++) mark_ref(vm, &g, vm->pins[i]);
+    /* also roots every dex res_strings entry: those all come from vm_intern_string */
     for (size_t i = 0; i < vm->nstring_pool; i++) mark_ref(vm, &g, vm->string_pool[i]);
-    for (size_t d = 0; d < vm->ndex; d++)
-        for (uint32_t i = 0; i < vm->dexes[d]->nstrings; i++)
-            if (vm->dexes[d]->res_strings[i]) mark_ref(vm, &g, vm->dexes[d]->res_strings[i]);
     while (g.n) {
         Object *o = vm_obj(vm, g.items[--g.n]);
         if (o) trace(vm, &g, o);
@@ -267,7 +271,7 @@ void vm_gc(Thread *self)
             continue;
         if (o->mark) {
             o->mark = 0;
-            live += offsetof(Object, u) + (o->kind == OBJ_ARRAY ? (uint64_t)o->length * elem_size(o->cls->array_kind)
+            live += offsetof(Object, u) + (o->kind == OBJ_ARRAY ? (uint64_t)o->length * vm_elem_size(o->cls->array_kind)
                                            : o->kind == OBJ_STRING ? (uint64_t)o->length * 2 : (uint64_t)o->cls->inst_words * 4);
         } else {
             free(o);

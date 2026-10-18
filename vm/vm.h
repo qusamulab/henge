@@ -149,7 +149,9 @@ struct VM {
     Ref *pins; size_t npins, cap_pins; /* native roots */
     const char *(*intern)(VM *vm, const char *s);
     char **interned; size_t ninterned, cap_interned;
-    Ref *string_pool; size_t nstring_pool, cap_string_pool; /* interned String objects */
+    Ref *string_pool; size_t nstring_pool, cap_string_pool; /* interned String objects (GC roots) */
+    Ref *string_index; size_t cap_string_index;             /* open-addressed by vm_string_hash */
+    const char *sig_to_string;                              /* interned "toString()Ljava/lang/String;" */
     void *natives;            /* registered native methods */
     char errbuf[512];
 };
@@ -170,7 +172,7 @@ Ref vm_new_object(Thread *t, Class *cls);
 Ref vm_new_array(Thread *t, Class *array_cls, uint32_t length);
 Ref vm_new_string_utf8(Thread *t, const char *s);
 Ref vm_new_string_utf16(Thread *t, const uint16_t *chars, uint32_t n);
-Object *vm_obj(VM *vm, Ref r);
+uint32_t vm_string_hash(Object *s); /* Java String.hashCode, cached */
 char *vm_string_utf8(VM *vm, Ref r); /* malloc'd */
 Ref vm_intern_string(Thread *t, Ref s);
 void vm_string_set(VM *vm, Ref r, const uint16_t *chars, uint32_t n); /* String constructors: replace a placeholder's contents */
@@ -183,14 +185,14 @@ void vm_gc(Thread *t);
 const char *vm_intern(VM *vm, const char *s);
 Method *vm_lookup_virtual(Class *cls, const char *sig);
 int vm_instance_of(Class *obj_cls, Class *target);
-Class *vm_resolve_type(Thread *t, Dex *dex, uint32_t type_idx);
+Class *vm_resolve_type_slow(Thread *t, Dex *dex, uint32_t type_idx);
 uint16_t vm_sig_arg_words(const char *sig, int is_static);
 Ref vm_class_object(Thread *t, Class *cls);
 Class *vm_primitive_class(VM *vm, char desc); /* "int" -> 'I' ... */
 
-Method *vm_resolve_method(Thread *t, Dex *dex, uint32_t method_idx);
+Method *vm_resolve_method_slow(Thread *t, Dex *dex, uint32_t method_idx);
 const char *vm_method_sig(Thread *t, Dex *dex, uint32_t method_idx);
-Field *vm_resolve_field(Thread *t, Dex *dex, uint32_t field_idx);
+Field *vm_resolve_field_slow(Thread *t, Dex *dex, uint32_t field_idx);
 
 uint32_t vm_field_offset(Class *cls, const char *name); /* instance field word offset, or UINT32_MAX */
 extern void (*vm_android_log)(int prio, const char *tag, const char *msg);
@@ -226,5 +228,49 @@ const uint8_t *vm_core_dex(size_t *size); /* henge-core.dex, embedded */
 
 #define VM_ARG_I(args, i) ((int32_t)(args)[i])
 static inline uint64_t vm_wide(const uint32_t *a) { return (uint64_t)a[0] | ((uint64_t)a[1] << 32); }
+
+/* ---- hot-path helpers (inline: called on nearly every opcode) ---- */
+
+/* Freed handle-table slots hold a tagged free-list link (low bit set). */
+static inline Object *vm_obj(VM *vm, Ref r)
+{
+    if (r == 0 || r >= vm->table_size)
+        return NULL;
+    Object *o = vm->table[r];
+    return ((uintptr_t)o & 1) ? NULL : o;
+}
+
+/* Resolution caches first; the slow paths look the entry up and fill the cache (or throw). */
+static inline Class *vm_resolve_type(Thread *t, Dex *dex, uint32_t i)
+{
+    Class *c = dex->classes_by_type[i];
+    return c ? c : vm_resolve_type_slow(t, dex, i);
+}
+static inline Method *vm_resolve_method(Thread *t, Dex *dex, uint32_t i)
+{
+    Method *m = dex->res_methods[i];
+    return m ? m : vm_resolve_method_slow(t, dex, i);
+}
+static inline Field *vm_resolve_field(Thread *t, Dex *dex, uint32_t i)
+{
+    Field *f = dex->res_fields[i];
+    return f ? f : vm_resolve_field_slow(t, dex, i);
+}
+
+/* Array element size in bytes for an array_kind. */
+static inline uint32_t vm_elem_size(char kind)
+{
+    switch (kind) {
+    case 'Z': case 'B': return 1;
+    case 'S': case 'C': return 2;
+    case 'J': case 'D': return 8;
+    default: return 4;
+    }
+}
+
+/* Register bits <-> float / double. */
+static inline float u2f(uint32_t v) { float f; __builtin_memcpy(&f, &v, 4); return f; }
+static inline uint32_t f2u(float f) { uint32_t v; __builtin_memcpy(&v, &f, 4); return v; }
+static inline uint64_t d2u(double d) { uint64_t v; __builtin_memcpy(&v, &d, 8); return v; }
 
 #endif

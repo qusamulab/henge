@@ -62,7 +62,7 @@ static void report_exception(vm_host *h, Thread *t, const char *what)
     Object *e = vm_obj(t->vm, t->exception);
     char msg[600] = "";
     if (e) {
-        Method *ts = vm_lookup_virtual(e->cls, vm_intern(t->vm, "toString()Ljava/lang/String;"));
+        Method *ts = vm_lookup_virtual(e->cls, t->vm->sig_to_string);
         Ref saved = t->exception;
         t->exception = 0;
         if (ts) {
@@ -81,14 +81,21 @@ static void report_exception(vm_host *h, Thread *t, const char *what)
     log_line(h, 6, "henge-vm", line);
 }
 
+/* The implementation of name+proto that a virtual call on an instance of cls reaches, or NULL. */
+static Method *find_virtual(Class *cls, const char *name, const char *proto)
+{
+    Method *m = vm_find_method(cls, name, proto);
+    Method *v = m ? vm_lookup_virtual(cls, m->sig) : NULL;
+    return v ? v : m;
+}
+
 /* Calls an instance method by name; returns 0 and reports on failure. */
 static int call(vm_host *h, Thread *t, Ref self, const char *name, const char *proto, uint32_t *extra, int nextra)
 {
     Object *o = vm_obj(t->vm, self);
     char sig[300];
     snprintf(sig, sizeof sig, "%s%s", name, proto);
-    Method *m = vm_find_method(o->cls, name, proto);
-    if (m) m = vm_lookup_virtual(o->cls, m->sig) ? vm_lookup_virtual(o->cls, m->sig) : m;
+    Method *m = find_virtual(o->cls, name, proto);
     if (!m) {
         char line[400];
         snprintf(line, sizeof line, "%s has no method %s", o->cls->name, sig);
@@ -267,6 +274,21 @@ static void *host_main(void *arg)
     struct { int id; float x, y; } fingers[10];
     int nfingers = 0;
 
+    /* Resolved once: the loop below runs every frame (~250/s) and on every touch. */
+    uint32_t off_finished = vm_field_offset(ac, "henge_finished");
+    uint32_t off_action = vm_field_offset(mec, "action"), off_count = vm_field_offset(mec, "count");
+    uint32_t off_ids = vm_field_offset(mec, "ids"), off_xs = vm_field_offset(mec, "xs"), off_ys = vm_field_offset(mec, "ys");
+    Class *handler_cls = vm_find_class(vm, "Landroid/os/Handler;");
+    Method *run_pending = handler_cls ? vm_find_method(handler_cls, "runPending", "()V") : NULL;
+    Method *draw_frame = have_gl ? find_virtual(vm_obj(vm, view)->cls, "henge_drawFrame", "()Z") : NULL;
+    Method *dispatch_touch = view ? find_virtual(vm_obj(vm, view)->cls, "dispatchTouchEvent", "(Landroid/view/MotionEvent;)Z") : NULL;
+    if (off_finished == UINT32_MAX || off_action == UINT32_MAX || off_count == UINT32_MAX || off_ids == UINT32_MAX ||
+        off_xs == UINT32_MAX || off_ys == UINT32_MAX || !run_pending || (have_gl && !draw_frame) || (view && !dispatch_touch)) {
+        start_result(h, 0, "henge's android classes lack a member the host needs");
+        return NULL;
+    }
+    if (vm_init_class(t, handler_cls) != 0) { report_exception(h, t, "Handler"); start_result(h, 0, "Handler.<clinit> threw"); return NULL; }
+
     h->running = 1;
     start_result(h, 1, NULL);
 
@@ -295,17 +317,20 @@ static void *host_main(void *arg)
             fingers[idx].x = tc.x;
             fingers[idx].y = tc.y;
             Object *e = vm_obj(vm, me);
-            e->u.words[vm_field_offset(mec, "action")] = (uint32_t)action;
-            e->u.words[vm_field_offset(mec, "count")] = (uint32_t)nfingers;
-            Object *ids = vm_obj(vm, e->u.words[vm_field_offset(mec, "ids")]);
-            Object *xs = vm_obj(vm, e->u.words[vm_field_offset(mec, "xs")]);
-            Object *ys = vm_obj(vm, e->u.words[vm_field_offset(mec, "ys")]);
+            e->u.words[off_action] = (uint32_t)action;
+            e->u.words[off_count] = (uint32_t)nfingers;
+            Object *ids = vm_obj(vm, e->u.words[off_ids]);
+            Object *xs = vm_obj(vm, e->u.words[off_xs]);
+            Object *ys = vm_obj(vm, e->u.words[off_ys]);
             for (int i = 0; i < nfingers; i++) {
                 ((int32_t *)ids->u.bytes)[i] = fingers[i].id;
                 ((float *)xs->u.bytes)[i] = fingers[i].x;
                 ((float *)ys->u.bytes)[i] = fingers[i].y;
             }
-            if (view) call(h, t, view, "dispatchTouchEvent", "(Landroid/view/MotionEvent;)Z", (uint32_t[]){me}, 1);
+            if (view) {
+                vm_invoke(t, dispatch_touch, (uint32_t[]){view, me});
+                if (t->exception) report_exception(h, t, "dispatchTouchEvent");
+            }
             if (tc.phase == 2) {
                 memmove(&fingers[idx], &fingers[idx + 1], (size_t)(nfingers - idx - 1) * sizeof fingers[0]);
                 nfingers--;
@@ -314,18 +339,15 @@ static void *host_main(void *arg)
             }
         }
 
-        vm_call_static(t, "Landroid/os/Handler;", "runPending", "()V", NULL);
+        vm_invoke(t, run_pending, NULL);
         if (t->exception) { report_exception(h, t, "Handler"); break; }
 
         if (have_gl) {
-            Ref drawn = 0;
-            Object *vo = vm_obj(vm, view);
-            Method *dm = vm_find_method(vo->cls, "henge_drawFrame", "()Z");
-            drawn = (Ref)vm_invoke(t, dm, (uint32_t[]){view});
+            Ref drawn = (Ref)vm_invoke(t, draw_frame, (uint32_t[]){view});
             if (t->exception) { report_exception(h, t, "onDrawFrame"); break; }
             if (drawn & 0xff) egl.swap(egl.dpy, egl.surf);
         }
-        if (ao = vm_obj(vm, act), ao->u.words[vm_field_offset(ac, "henge_finished")] & 0xff) break;
+        if (ao = vm_obj(vm, act), ao->u.words[off_finished] & 0xff) break;
         usleep(4000);
     }
 

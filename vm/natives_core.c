@@ -13,10 +13,7 @@
 #define UNUSED (void)t; (void)a
 
 static Object *obj(Thread *t, Ref r) { return vm_obj(t->vm, r); }
-static float u2f(uint32_t v) { float f; memcpy(&f, &v, 4); return f; }
-static uint32_t f2u(float f) { uint32_t v; memcpy(&v, &f, 4); return v; }
 static double u2d(const uint32_t *w) { uint64_t v = vm_wide(w); double d; memcpy(&d, &v, 8); return d; }
-static uint64_t d2u(double d) { uint64_t v; memcpy(&v, &d, 8); return v; }
 
 static int npe(Thread *t) { vm_throw(t, "Ljava/lang/NullPointerException;", NULL); return 0; }
 
@@ -24,16 +21,20 @@ static int npe(Thread *t) { vm_throw(t, "Ljava/lang/NullPointerException;", NULL
 
 NATIVE(object_get_class) { UNUSED; return vm_class_object(t, obj(t, a[0])->cls); }
 
+/* Identity hash. Strings keep their content hash in Object.hash, so theirs is derived from the handle
+ * each time instead of being stored. */
+static uint32_t identity_hash(Object *o, Ref r)
+{
+    uint32_t h = (r * 0x9E3779B1u >> 1) | 1;
+    if (o->kind == OBJ_STRING) return h;
+    if (!o->hash) o->hash = h;
+    return o->hash;
+}
+
 NATIVE(object_hash_code)
 {
     Object *o = obj(t, a[0]);
-    if (o->kind == OBJ_STRING) {
-        uint32_t h = 0;
-        for (uint32_t i = 0; i < o->length; i++) h = 31 * h + o->u.chars[i];
-        return h;
-    }
-    if (!o->hash) o->hash = (a[0] * 0x9E3779B1u >> 1) | 1;
-    return o->hash;
+    return o->kind == OBJ_STRING ? vm_string_hash(o) : identity_hash(o, a[0]);
 }
 
 NATIVE(object_clone)
@@ -44,9 +45,7 @@ NATIVE(object_clone)
         if (t->exception) return 0;
         Object *n = obj(t, r);
         o = obj(t, a[0]); /* the table may have moved nothing, but be safe */
-        char k = o->cls->array_kind;
-        size_t es = (k == 'Z' || k == 'B') ? 1 : (k == 'S' || k == 'C') ? 2 : (k == 'J' || k == 'D') ? 8 : 4;
-        memcpy(n->u.bytes, o->u.bytes, (size_t)o->length * es);
+        memcpy(n->u.bytes, o->u.bytes, (size_t)o->length * vm_elem_size(o->cls->array_kind));
         return r;
     }
     Class *cl = vm_find_class(t->vm, "Ljava/lang/Cloneable;");
@@ -481,7 +480,7 @@ NATIVE(string_value_of_obj)
     if (!a[0]) return vm_new_string_utf8(t, "null");
     Object *o = obj(t, a[0]);
     if (o->kind == OBJ_STRING) return a[0];
-    Method *m = vm_lookup_virtual(o->cls, vm_intern(t->vm, "toString()Ljava/lang/String;"));
+    Method *m = vm_lookup_virtual(o->cls, t->vm->sig_to_string);
     if (!m) return vm_new_string_utf8(t, "?");
     return vm_invoke(t, m, (uint32_t[]){a[0]});
 }
@@ -610,6 +609,7 @@ NATIVE(string_format)
             free(u);
         }
         size_t n = strlen(piece);
+        if (n > sizeof out - 1 - k) n = sizeof out - 1 - k; /* truncate rather than overflow */
         memcpy(out + k, piece, n);
         k += n;
     }
@@ -718,15 +718,14 @@ NATIVE(system_arraycopy)
         vm_throw(t, "Ljava/lang/ArrayIndexOutOfBoundsException;", "arraycopy");
         return 0;
     }
-    char k = s->cls->array_kind;
-    size_t es = (k == 'Z' || k == 'B') ? 1 : (k == 'S' || k == 'C') ? 2 : (k == 'J' || k == 'D') ? 8 : 4;
+    size_t es = vm_elem_size(s->cls->array_kind);
     memmove(d->u.bytes + (size_t)dp * es, s->u.bytes + (size_t)sp * es, (size_t)n * es);
     return 0;
 }
 
 NATIVE(system_millis) { UNUSED; struct timeval tv; gettimeofday(&tv, NULL); return (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000; }
 NATIVE(system_nanos) { UNUSED; struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec; }
-NATIVE(system_identity_hash) { if (!a[0]) return 0; return object_hash_code(t, a); }
+NATIVE(system_identity_hash) { if (!a[0]) return 0; return identity_hash(obj(t, a[0]), a[0]); }
 NATIVE(system_exit) { UNUSED; exit((int)a[0]); }
 
 /* ---- PrintStream ---- */

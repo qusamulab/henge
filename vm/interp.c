@@ -11,25 +11,12 @@
 
 static inline uint64_t rw(const uint32_t *r) { uint64_t v; memcpy(&v, r, 8); return v; }
 static inline void ww(uint32_t *r, uint64_t v) { memcpy(r, &v, 8); }
-static inline float u2f(uint32_t v) { float f; memcpy(&f, &v, 4); return f; }
-static inline uint32_t f2u(float f) { uint32_t v; memcpy(&v, &f, 4); return v; }
 static inline double u2d(uint64_t v) { double d; memcpy(&d, &v, 8); return d; }
-static inline uint64_t d2u(double d) { uint64_t v; memcpy(&v, &d, 8); return v; }
 
 static int32_t f2i(float f) { return f != f ? 0 : f >= 2147483648.0f ? INT32_MAX : f <= -2147483648.0f ? INT32_MIN : (int32_t)f; }
 static int32_t d2i(double d) { return d != d ? 0 : d >= 2147483648.0 ? INT32_MAX : d <= -2147483649.0 ? INT32_MIN : (int32_t)d; }
 static int64_t f2l(float f) { return f != f ? 0 : f >= 9223372036854775808.0f ? INT64_MAX : f <= -9223372036854775808.0f ? INT64_MIN : (int64_t)f; }
 static int64_t d2l(double d) { return d != d ? 0 : d >= 9223372036854775808.0 ? INT64_MAX : d <= -9223372036854775808.0 ? INT64_MIN : (int64_t)d; }
-
-static uint32_t elem_bytes(char k)
-{
-    switch (k) {
-    case 'Z': case 'B': return 1;
-    case 'S': case 'C': return 2;
-    case 'J': case 'D': return 8;
-    default: return 4;
-    }
-}
 
 /* Finds the handler for an exception thrown at dex_pc; returns the handler address or -1. */
 static int32_t find_handler(Thread *t, Method *m, uint32_t dex_pc, Object *exc)
@@ -211,10 +198,11 @@ next:;
         Ref a = vm_new_array(t, c, count);
         if (t->exception) goto exception;
         Object *ao = vm_obj(vm, a);
+        uint32_t es = vm_elem_size(c->array_kind);
         for (uint32_t i = 0; i < count; i++) {
             uint32_t v = regs[(inst & 0xff) == 0x24 ? list[i] : first + i];
-            if (elem_bytes(c->array_kind) == 1) ao->u.bytes[i] = (uint8_t)v;
-            else if (elem_bytes(c->array_kind) == 2) ((uint16_t *)ao->u.bytes)[i] = (uint16_t)v;
+            if (es == 1) ao->u.bytes[i] = (uint8_t)v;
+            else if (es == 2) ((uint16_t *)ao->u.bytes)[i] = (uint16_t)v;
             else ((uint32_t *)ao->u.bytes)[i] = v;
         }
         result = a;

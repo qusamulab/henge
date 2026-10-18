@@ -54,14 +54,6 @@ int dex_open(Dex *dex, const uint8_t *data, size_t size, char *err, size_t errle
     dex->data = data;
     dex->size = size;
     uint32_t off;
-#define TABLE(field, count_off, off_off, elem)                                   \
-    dex->n##field = rd32(data + (count_off));                                    \
-    off = rd32(data + (off_off));                                                \
-    if ((uint64_t)off + (uint64_t)dex->n##field * (elem) > size) {               \
-        snprintf(err, errlen, "dex table " #field " is out of bounds");          \
-        return -1;                                                               \
-    }                                                                            \
-    dex->field##_ids = data + off;
     dex->nstrings = rd32(data + 0x38); off = rd32(data + 0x3c);
     if ((uint64_t)off + (uint64_t)dex->nstrings * 4 > size) { snprintf(err, errlen, "bad string table"); return -1; }
     dex->string_ids = data + off;
@@ -80,7 +72,6 @@ int dex_open(Dex *dex, const uint8_t *data, size_t size, char *err, size_t errle
     dex->nclasses = rd32(data + 0x60); off = rd32(data + 0x64);
     if ((uint64_t)off + (uint64_t)dex->nclasses * 32 > size) { snprintf(err, errlen, "bad class table"); return -1; }
     dex->class_defs = data + off;
-#undef TABLE
     dex->strings = calloc(dex->nstrings ? dex->nstrings : 1, sizeof *dex->strings);
     dex->classes_by_type = calloc(dex->ntypes ? dex->ntypes : 1, sizeof *dex->classes_by_type);
     dex->res_methods = calloc(dex->nmethods ? dex->nmethods : 1, sizeof *dex->res_methods);

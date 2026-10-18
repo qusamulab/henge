@@ -7,3 +7,6 @@ app/Local.xcconfig
 *.p12
 *.pfx
 *.mobileprovision
+
+# javac crash dumps
+javac.*.args
