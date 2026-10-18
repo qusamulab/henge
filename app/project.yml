@@ -19,6 +19,13 @@ targets:
       - path: HengeHost
       - path: ../runtime
         group: runtime
+      # On-device conversion: ELF -> Mach-O converter and APK reader (without their CLIs).
+      - path: ../convert
+        group: convert
+        excludes: ["main.c"]
+      - path: ../apk
+        group: apk
+        excludes: ["main.c"]
       # Converted by `make app-dylib` (pre-build phase below); embedded + signed into Frameworks/.
       - path: ../build/app/libadd.dylib
         group: Frameworks
@@ -31,6 +38,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(HENGE_BUNDLE_ID_PREFIX).henge
         PRODUCT_NAME: henge
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: YES
         # Merged with the generated plist; holds the .apk UTImportedTypeDeclarations.
@@ -44,6 +52,7 @@ targets:
         HEADER_SEARCH_PATHS: $(SRCROOT)/../include
         GCC_C_LANGUAGE_STANDARD: c11
         LD_RUNPATH_SEARCH_PATHS: $(inherited) @executable_path/Frameworks
+        OTHER_LDFLAGS: $(inherited) -lz -framework Security
     preBuildScripts:
       - name: Convert libadd.so (make app-dylib)
         basedOnDependencyAnalysis: false

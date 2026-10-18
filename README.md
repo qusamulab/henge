@@ -18,15 +18,28 @@ No JIT, no debugger, no jailbreak: henge **converts the APK's `.so` files to Mac
 
 ## Status
 
-Milestone **M1** (call a function in a converted `.so`) works on macOS and the iOS Simulator; a real iPhone run is next. See [docs/roadmap.md](docs/roadmap.md).
+Milestone **M1** (call a function in a converted `.so`) works on macOS, the iOS Simulator and a real iPhone. M2 is in progress: a `native_app_glue` NativeActivity APK is converted, signed with your own identity and run (`android_main`) entirely on an iPhone. There is no display or input yet. See [docs/roadmap.md](docs/roadmap.md).
 
 | | macOS | iOS Simulator | iPhone |
 | --- | --- | --- | --- |
 | ELF → Mach-O conversion (`henge-convert`) | ✅ | ✅ | — |
-| `dlopen` + mini linker (`henge_link`) | ✅ | ✅ | not yet |
-| Calls, globals via GOT, function-pointer tables, `init_array` | ✅ | ✅ | not yet |
+| `dlopen` + mini linker (`henge_link`) | ✅ | ✅ | ✅ |
+| Calls, globals via GOT, function-pointer tables, `init_array` | ✅ | ✅ | ✅ |
+| bionic shim: pthread objects, errno, fd I/O, liblog, ALooper, AConfiguration | ✅ | — | ✅ |
+| NativeActivity host (`android_main` lifecycle with a placeholder window) | ✅ | — | ✅ |
+| APK → `.so` → Mach-O → signature with your identity → run, inside the app (`Convert & Run`) | — | — | ✅ |
 
-Today the conversion runs on the Mac at build time and the host app bundles the result. On-device conversion and signing come in M2.
+The host app reads an APK, extracts `lib/arm64-v8a/*.so`, converts it to Mach-O, **signs it on the device** and loads it. iOS only loads a library from the app container if it is signed by the same developer team as the app, so import your own identity once: export your Apple Development certificate and private key from Keychain Access as a `.p12`, open the app's **Signing** tab and import it (the `.p12` and its password stay in the device's Keychain; nothing leaves the phone). Without an identity the library gets an ad hoc signature, which iOS rejects (`code signature invalid`). `henge-convert --sign-identity NAME` and `--p12 FILE` (password in `$HENGE_P12_PASSWORD`) do the same on the Mac.
+
+A NativeActivity APK keeps running after **Convert & Run** until you tap **Stop**; its log lines appear on the screen. There is no display yet: the window handed to the app is a placeholder.
+
+**Security notes.** Signing keys are your own, never part of this repository (`.gitignore` covers `*.p12` and `*.mobileprovision`; `app/Local.xcconfig` holds your team ID). The imported `.p12` and its password are stored in the device's Keychain (this device only, after first unlock), so anyone who can unlock the phone and run henge can sign with that identity; remove it from the Signing tab when you no longer need it, and delete the `.p12` you exported. henge signs the native code of whatever APK you run with your developer certificate, and that code runs with the app's full privileges inside the iOS sandbox, so only run APKs you trust. The app's `Documents` folder is visible in the Files app (used to import the `.p12`).
+
+Run a library from the terminal without tapping (the APK must be in the app's `Application Support/henge/apks/`):
+
+```sh
+xcrun devicectl device process launch --device <UDID> --console <bundle id> -- -convertRun native.apk
+```
 
 <p>
   <img src="docs/images/screenshots/library-empty.png" width="200" alt="Library (empty)">

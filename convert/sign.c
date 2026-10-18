@@ -6,7 +6,8 @@
  *     Requirements  (0xfade0c01, empty)   -> special slot -2
  *     CMS wrapper   (0xfade0b01, empty)   ad-hoc: no signature
  *
- * Identity (CMS) signing with the user's certificate is not implemented yet.
+ * With an identity (henge_sign_identity) the CodeDirectory carries the team ID and the CMS slot a
+ * signature made by the caller's key (cms.c).
  */
 #include <stdlib.h>
 #include <string.h>
@@ -42,8 +43,9 @@ static void be64(uint8_t *p, uint64_t v) {
     be32(p + 4, (uint32_t)v);
 }
 
-int henge_sign_adhoc(const uint8_t *macho, size_t size, const char *identifier, uint8_t **out,
-                     size_t *out_size, char *err, size_t errlen) {
+/* Ad hoc when sg is NULL, else signed with the identity behind sg. */
+static int sign_impl(const uint8_t *macho, size_t size, const char *identifier, const struct henge_signer *sg,
+                     uint8_t **out, size_t *out_size, char *err, size_t errlen) {
     *out = NULL;
     *out_size = 0;
     if (!identifier || !*identifier) return hc_fail(err, errlen, "signing identifier is required");
@@ -110,10 +112,22 @@ int henge_sign_adhoc(const uint8_t *macho, size_t size, const char *identifier, 
     if (dataoff > UINT32_MAX) return hc_fail(err, errlen, "file too large to sign");
     uint32_t ncode = (uint32_t)((dataoff + CS_PAGE - 1) / CS_PAGE);
     size_t ident_len = strlen(identifier) + 1;
+    struct hc_cert_info ci = {{0}};
+    size_t team_len = 0, cms_der_len = 0;
+    if (sg) {
+        /* The CMS blob's size goes into the load command, which the CodeDirectory hashes, so learn it
+         * with a dummy signature first. */
+        uint8_t *dummy;
+        if (hc_cert_info_parse(sg->cert, sg->cert_len, &ci, err, errlen) != 0) return -1;
+        team_len = strlen(ci.team_id) + 1;
+        if (hc_cms_build(sg, (const uint8_t *)identifier, ident_len, 1, &dummy, &cms_der_len, err, errlen) != 0)
+            return -1;
+        free(dummy);
+    }
     uint32_t ident_offset = CD_HEADER_SIZE;
-    uint32_t hash_offset = (uint32_t)(ident_offset + ident_len + N_SPECIAL * HASH_SIZE);
+    uint32_t hash_offset = (uint32_t)(ident_offset + ident_len + team_len + N_SPECIAL * HASH_SIZE);
     uint32_t cd_len = hash_offset + ncode * HASH_SIZE;
-    const uint32_t req_len = 12, cms_len = 8, sb_hdr = 12 + 3 * 8;
+    const uint32_t req_len = 12, cms_len = 8 + (uint32_t)cms_der_len, sb_hdr = 12 + 3 * 8;
     uint32_t sb_len = sb_hdr + cd_len + req_len + cms_len;
     uint32_t datasize = (uint32_t)hc_align_up(sb_len, 16);
 
@@ -164,7 +178,7 @@ int henge_sign_adhoc(const uint8_t *macho, size_t size, const char *identifier, 
     be32(cd + 0, CSMAGIC_CODEDIRECTORY);
     be32(cd + 4, cd_len);
     be32(cd + 8, CD_VERSION);
-    be32(cd + 12, CS_ADHOC);
+    be32(cd + 12, sg ? 0 : CS_ADHOC);
     be32(cd + 16, hash_offset);
     be32(cd + 20, ident_offset);
     be32(cd + 24, N_SPECIAL);
@@ -179,6 +193,10 @@ int henge_sign_adhoc(const uint8_t *macho, size_t size, const char *identifier, 
     be64(cd + 72, text->filesize); /* execSegLimit */
     be64(cd + 80, mh->filetype == MH_EXECUTE ? CS_EXECSEG_MAIN_BINARY : 0);
     memcpy(cd + ident_offset, identifier, ident_len);
+    if (sg) {
+        be32(cd + 48, (uint32_t)(ident_offset + ident_len)); /* teamOffset */
+        memcpy(cd + ident_offset + ident_len, ci.team_id, team_len);
+    }
 
     /* Special slot -2 = hash of the requirements blob; slot -1 stays zero. */
     CC_SHA256(req, req_len, cd + hash_offset - CSSLOT_REQUIREMENTS * HASH_SIZE);
@@ -188,7 +206,38 @@ int henge_sign_adhoc(const uint8_t *macho, size_t size, const char *identifier, 
         CC_SHA256(mo + start, (CC_LONG)n, cd + hash_offset + i * HASH_SIZE);
     }
 
+    if (sg) {
+        uint8_t *der;
+        size_t der_len;
+        if (hc_cms_build(sg, cd, cd_len, 0, &der, &der_len, err, errlen) != 0) {
+            free(mo);
+            return -1;
+        }
+        if (der_len != cms_der_len) {
+            free(der);
+            free(mo);
+            return hc_fail(err, errlen, "internal error: CMS size changed (%zu -> %zu)", cms_der_len, der_len);
+        }
+        memcpy(cms + 8, der, der_len);
+        free(der);
+    }
+
     *out = mo;
     *out_size = total;
     return 0;
+}
+
+int henge_sign_adhoc(const uint8_t *macho, size_t size, const char *identifier, uint8_t **out,
+                     size_t *out_size, char *err, size_t errlen) {
+    return sign_impl(macho, size, identifier, NULL, out, out_size, err, errlen);
+}
+
+int henge_sign_identity(const uint8_t *macho, size_t size, const char *identifier,
+                        const struct henge_signer *signer, uint8_t **out, size_t *out_size, char *err,
+                        size_t errlen) {
+    *out = NULL;
+    *out_size = 0;
+    if (!signer || !signer->cert || !signer->sign || signer->signature_len == 0)
+        return hc_fail(err, errlen, "incomplete signer");
+    return sign_impl(macho, size, identifier, signer, out, out_size, err, errlen);
 }

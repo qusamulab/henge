@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
-    enum Tab: String { case library, diagnostics }
+    enum Tab: String { case library, signing, diagnostics }
 
     /// Launch with `-initialTab diagnostics` to open on the Diagnostics tab (used for screenshots).
     @State private var tab: Tab = UserDefaults.standard.string(forKey: "initialTab").flatMap(Tab.init) ?? .library
@@ -11,6 +11,9 @@ struct RootView: View {
             LibraryView()
                 .tabItem { Label("Library", systemImage: "square.stack.3d.up") }
                 .tag(Tab.library)
+            SigningView()
+                .tabItem { Label("Signing", systemImage: "signature") }
+                .tag(Tab.signing)
             DiagnosticsView()
                 .tabItem { Label("Diagnostics", systemImage: "stethoscope") }
                 .tag(Tab.diagnostics)

@@ -2,3 +2,8 @@ build/
 app/*.xcodeproj/
 app/Local.xcconfig
 .claude/
+
+# Signing material: never commit
+*.p12
+*.pfx
+*.mobileprovision

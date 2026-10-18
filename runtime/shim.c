@@ -75,6 +75,8 @@ static const struct {
 } k_tables[] = {
     {hr_shim_core, &hr_shim_core_count},
     {hr_shim_dl, &hr_shim_dl_count},
+    {hr_shim_posix, &hr_shim_posix_count},
+    {hr_shim_android, &hr_shim_android_count},
 };
 
 static pthread_once_t g_index_once = PTHREAD_ONCE_INIT;

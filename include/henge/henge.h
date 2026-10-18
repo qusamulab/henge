@@ -79,6 +79,31 @@ void henge_convert_result_free(struct henge_convert_result *res);
 int henge_sign_adhoc(const uint8_t *macho, size_t size, const char *identifier, uint8_t **out,
                      size_t *out_size, char *err, size_t errlen);
 
+/* Signing with a developer identity (what `codesign -s <identity>` does for a dylib). The private key
+ * stays behind the sign callback, so this core does not depend on Security.framework. */
+struct henge_signer {
+    const uint8_t *cert; /* the signer's X.509 certificate, DER; its issuer must be Apple's WWDR CA (G3) */
+    size_t cert_len;
+    size_t signature_len; /* RSA modulus size in bytes (256 for 2048-bit keys) */
+    /* RSASSA-PKCS1-v1_5 with SHA-256 over data; writes exactly signature_len bytes to sig.
+     * Returns 0, or -1 with a message in err. */
+    int (*sign)(void *user, const uint8_t *data, size_t len, uint8_t *sig, char *err, size_t errlen);
+    void *user;
+};
+
+/* Like henge_sign_adhoc, but signs with the identity: CodeDirectory with the certificate's team ID
+ * and a CMS signature with Apple's attributes. */
+int henge_sign_identity(const uint8_t *macho, size_t size, const char *identifier,
+                        const struct henge_signer *signer, uint8_t **out, size_t *out_size, char *err,
+                        size_t errlen);
+
+/* Signer backed by Security.framework (macOS and iOS). Free with henge_signer_free. */
+struct henge_signer *henge_signer_from_pkcs12(const uint8_t *p12, size_t len, const char *password, char *err,
+                                              size_t errlen);
+/* macOS: the keychain identity whose certificate common name contains `name`. */
+struct henge_signer *henge_signer_from_keychain(const char *name, char *err, size_t errlen);
+void henge_signer_free(struct henge_signer *signer);
+
 /* ---- runtime (runtime/) ---- */
 
 typedef struct henge_image henge_image;
@@ -98,6 +123,25 @@ henge_image *henge_load(const char *name, char *err, size_t errlen);
 
 /* Looks up an exported symbol via DT_GNU_HASH (or DT_HASH). */
 void *henge_dlsym(henge_image *image, const char *name);
+
+/* ---- NativeActivity host (runtime/activity.c) ---- */
+
+typedef struct henge_activity henge_activity;
+
+/* Runs an Android NativeActivity library (one exporting ANativeActivity_onCreate, e.g. built with
+ * native_app_glue): creates a stand-in ANativeActivity, calls onCreate, then onStart / onResume,
+ * hands it a placeholder window and input queue, and gives it focus. native_app_glue's onCreate
+ * returns once the app thread (android_main) is running. data_path becomes the internal, external
+ * and OBB data paths. Returns NULL on failure (see err). */
+henge_activity *henge_activity_start(henge_image *lib, const char *data_path, char *err, size_t errlen);
+
+/* Receives every __android_log_print / __android_log_write line from Android code (prio is an
+ * ANDROID_LOG_* value). Called on the logging thread. Pass NULL to remove. */
+void henge_set_log_sink(void (*sink)(int prio, const char *tag, const char *msg, void *user), void *user);
+
+/* Drives the activity down (focus lost, window / queue destroyed, onPause, onStop, onDestroy) and
+ * frees it. native_app_glue's onDestroy waits for android_main to return. */
+void henge_activity_stop(henge_activity *activity);
 
 /* Nonzero if the bionic shim implements `name` (for compatibility reports). */
 int henge_shim_provides(const char *name);
