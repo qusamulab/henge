@@ -302,7 +302,8 @@ test-cxx: $(B)/tests/test_cxx $(B)/tests/libcxx.dylib ## C++ (libc++, exceptions
 	$(B)/tests/test_cxx $(B)/tests/libcxx.dylib
 
 test-vm: $(B)/tests/test_vm ## run Java test code on the henge-vm bytecode interpreter
-	$(B)/tests/test_vm vm/tests/vmtest.dex
+	$(B)/tests/test_vm vm/tests/vmtest.dex 'LVmTest;'
+	$(B)/tests/test_vm vm/tests/kttest.dex 'Lkt/KtTestKt;'
 
 test-layout: $(B)/tests/test_layout $(B)/tests/libadd.dylib ## check the converted Mach-O layout
 	$(B)/tests/test_layout $(B)/samples/libadd.so $(B)/tests/libadd.dylib

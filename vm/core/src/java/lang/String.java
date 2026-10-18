@@ -36,13 +36,19 @@ public final class String implements CharSequence, Comparable<java.lang.String> 
     public native java.lang.String replace(java.lang.CharSequence from, java.lang.CharSequence to);
     public native java.lang.String trim();
     public native java.lang.String toLowerCase();
+    public java.lang.String toLowerCase(java.util.Locale l) { return toLowerCase(); }
+    public java.lang.String toUpperCase(java.util.Locale l) { return toUpperCase(); }
+    public static java.lang.String format(java.util.Locale l, java.lang.String fmt, java.lang.Object... args) { return format(fmt, args); }
+    public static final java.util.Comparator<java.lang.String> CASE_INSENSITIVE_ORDER = new java.util.Comparator<java.lang.String>() {
+        public int compare(java.lang.String a, java.lang.String b) { return a.compareToIgnoreCase(b); }
+    };
     public native java.lang.String toUpperCase();
     public native java.lang.String concat(java.lang.String s);
     public native java.lang.String intern();
     public native char[] toCharArray();
     public native void getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin);
     public native byte[] getBytes();
-    public java.lang.String toString() { return null; } // replaced natively: returns this
+    public native java.lang.String toString();
     public boolean matches(java.lang.String regex) { throw new UnsupportedOperationException("regex"); }
 
     public static native java.lang.String valueOf(java.lang.Object o);

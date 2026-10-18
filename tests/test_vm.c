@@ -20,8 +20,8 @@ static uint8_t *read_file(const char *path, size_t *size)
 
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
-        fprintf(stderr, "usage: %s vmtest.dex\n", argv[0]);
+    if (argc != 3) {
+        fprintf(stderr, "usage: %s test.dex LTestClass;\n", argv[0]);
         return 2;
     }
     size_t size;
@@ -32,7 +32,7 @@ int main(int argc, char **argv)
     char err[256];
     if (vm_add_dex(vm, dex, size, err, sizeof err) != 0) { printf("FAIL  vm_add_dex: %s\n", err); return 1; }
     Thread *t = vm_main_thread(vm);
-    uint64_t failures = vm_call_static(t, "LVmTest;", "run", "()I", NULL);
+    uint64_t failures = vm_call_static(t, argv[2], "run", "()I", NULL);
     if (t->exception) {
         Object *e = vm_obj(vm, t->exception);
         printf("FAIL  uncaught exception %s\n", e ? e->cls->name : "?");
