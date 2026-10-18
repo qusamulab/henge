@@ -40,6 +40,7 @@ struct henge_apk_manifest {
     int native_activity;     /* 1 if an <activity> is android.app.NativeActivity */
     char lib_name[256];      /* its android.app.lib_name meta-data; "main" if absent */
     char label[256];         /* <application android:label> if a literal string, else empty */
+    char launcher_activity[256]; /* class of the MAIN / LAUNCHER <activity>, fully qualified; empty if none */
 };
 
 /* Parses the binary AndroidManifest.xml. Returns 0 on success, -1 on failure (see err). */
