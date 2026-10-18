@@ -1,4 +1,0 @@
--keep class kt.KtTestKt { public static int run(); }
--dontobfuscate
--dontoptimize
--ignorewarnings

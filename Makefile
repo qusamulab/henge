@@ -160,71 +160,40 @@ $(B)/samples/libgame.so: samples/libgame/main.c $(GLUE_DIR)/android_native_app_g
 	@mkdir -p $(@D)
 	$(NDK_CC) $(NDK_FLAGS) -I$(GLUE_DIR) -o $@ $^ -landroid -llog -lEGL -lGLESv2 -laaudio -lm
 
-# Sample APK: aapt2-compiled manifest + lib/arm64-v8a/libadd.so (deflate) +
-# assets/hello.txt (stored), so both extraction paths are covered.
-SAMPLE_APK_STAGE := $(B)/samples/apk
-samples-apk: $(B)/samples/sample.apk $(B)/samples/native.apk $(B)/samples/game.apk ## build the sample APK (needs aapt2 + android.jar)
-
-$(B)/samples/sample.apk: samples/apk/AndroidManifest.xml samples/apk/hello.txt $(B)/samples/libadd.so
+# $(call build-apk,STAGE,MANIFEST,LIB,[ASSET]): aapt2-compiled manifest + lib/arm64-v8a/LIB
+# (deflate) + optional assets/ASSET (stored), so both extraction paths are covered.
+define build-apk
 	@test -x "$(AAPT2)" || { echo "error: aapt2 not found under $(ANDROID_HOME)/build-tools (set ANDROID_HOME or AAPT2)" >&2; exit 1; }
 	@test -f "$(ANDROID_JAR)" || { echo "error: android.jar not found under $(ANDROID_HOME)/platforms (set ANDROID_HOME or ANDROID_JAR)" >&2; exit 1; }
-	rm -rf $(SAMPLE_APK_STAGE) $@.tmp
-	mkdir -p $(SAMPLE_APK_STAGE)/lib/arm64-v8a $(SAMPLE_APK_STAGE)/assets
-	"$(AAPT2)" link -I "$(ANDROID_JAR)" --manifest samples/apk/AndroidManifest.xml -o $@.tmp
-	cp $(B)/samples/libadd.so $(SAMPLE_APK_STAGE)/lib/arm64-v8a/
-	cp samples/apk/hello.txt $(SAMPLE_APK_STAGE)/assets/
-	cd $(SAMPLE_APK_STAGE) && zip -q -X -9 $(abspath $@.tmp) lib/arm64-v8a/libadd.so && zip -q -X -0 $(abspath $@.tmp) assets/hello.txt
+	rm -rf $(1) $@.tmp
+	mkdir -p $(1)/lib/arm64-v8a $(1)/assets
+	"$(AAPT2)" link -I "$(ANDROID_JAR)" --manifest $(2) -o $@.tmp
+	cp $(3) $(1)/lib/arm64-v8a/
+	cd $(1) && zip -q -X -9 $(abspath $@.tmp) lib/arm64-v8a/$(notdir $(3))
+	$(if $(4),cp $(4) $(1)/assets/ && cd $(1) && zip -q -X -0 $(abspath $@.tmp) assets/$(notdir $(4)))
 	mv $@.tmp $@
+endef
+
+samples-apk: $(B)/samples/sample.apk $(B)/samples/native.apk $(B)/samples/game.apk ## build the sample APKs (needs aapt2 + android.jar)
+
+# libadd.so + assets/hello.txt, read by test-apk / test-activity.
+$(B)/samples/sample.apk: samples/apk/AndroidManifest.xml samples/apk/hello.txt $(B)/samples/libadd.so
+	$(call build-apk,$(B)/samples/apk,$<,$(B)/samples/libadd.so,samples/apk/hello.txt)
 
 # NativeActivity sample APK (libnative.so), for running on the device.
-NATIVE_APK_STAGE := $(B)/samples/apk-native
 $(B)/samples/native.apk: samples/apk-native/AndroidManifest.xml $(B)/samples/libnative.so
-	@test -x "$(AAPT2)" || { echo "error: aapt2 not found under $(ANDROID_HOME)/build-tools (set ANDROID_HOME or AAPT2)" >&2; exit 1; }
-	@test -f "$(ANDROID_JAR)" || { echo "error: android.jar not found under $(ANDROID_HOME)/platforms (set ANDROID_HOME or ANDROID_JAR)" >&2; exit 1; }
-	rm -rf $(NATIVE_APK_STAGE) $@.tmp
-	mkdir -p $(NATIVE_APK_STAGE)/lib/arm64-v8a
-	"$(AAPT2)" link -I "$(ANDROID_JAR)" --manifest samples/apk-native/AndroidManifest.xml -o $@.tmp
-	cp $(B)/samples/libnative.so $(NATIVE_APK_STAGE)/lib/arm64-v8a/
-	cd $(NATIVE_APK_STAGE) && zip -q -X -9 $(abspath $@.tmp) lib/arm64-v8a/libnative.so
-	mv $@.tmp $@
+	$(call build-apk,$(B)/samples/apk-native,$<,$(B)/samples/libnative.so)
 
-# Sample game APK: libgame.so + assets/game.cfg (stored).
-GAME_APK_STAGE := $(B)/samples/apk-game
+# Sample game APK: libgame.so + assets/game.cfg.
 $(B)/samples/game.apk: samples/apk-game/AndroidManifest.xml samples/apk-game/assets/game.cfg $(B)/samples/libgame.so
-	@test -x "$(AAPT2)" || { echo "error: aapt2 not found under $(ANDROID_HOME)/build-tools (set ANDROID_HOME or AAPT2)" >&2; exit 1; }
-	@test -f "$(ANDROID_JAR)" || { echo "error: android.jar not found under $(ANDROID_HOME)/platforms (set ANDROID_HOME or ANDROID_JAR)" >&2; exit 1; }
-	rm -rf $(GAME_APK_STAGE) $@.tmp
-	mkdir -p $(GAME_APK_STAGE)/lib/arm64-v8a $(GAME_APK_STAGE)/assets
-	"$(AAPT2)" link -I "$(ANDROID_JAR)" --manifest samples/apk-game/AndroidManifest.xml -o $@.tmp
-	cp $(B)/samples/libgame.so $(GAME_APK_STAGE)/lib/arm64-v8a/
-	cp samples/apk-game/assets/game.cfg $(GAME_APK_STAGE)/assets/
-	cd $(GAME_APK_STAGE) && zip -q -X -9 $(abspath $@.tmp) lib/arm64-v8a/libgame.so && zip -q -X -0 $(abspath $@.tmp) assets/game.cfg
-	mv $@.tmp $@
+	$(call build-apk,$(B)/samples/apk-game,$<,$(B)/samples/libgame.so,samples/apk-game/assets/game.cfg)
 
 # ---- tests (macOS) ----
-tests: $(B)/tests/test_cxx $(B)/tests/test_m1 $(B)/tests/test_layout $(B)/tests/test_patch $(B)/tests/test_dl $(B)/tests/test_shim $(B)/tests/test_activity $(B)/tests/test_apk
+TESTS := test_layout test_m1 test_patch test_dl test_shim test_cxx test_activity test_apk test_vm
+tests: $(addprefix $(B)/tests/,$(TESTS))
 
-$(B)/tests/test_m1: tests/test_m1.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.a $(PUBLIC_HEADERS)
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -o $@
-
-$(B)/tests/test_patch: tests/test_patch.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.a $(PUBLIC_HEADERS)
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -o $@
-
-$(B)/tests/test_dl: tests/test_dl.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.a $(PUBLIC_HEADERS)
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -o $@
-
-$(B)/tests/test_shim: tests/test_shim.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.a $(PUBLIC_HEADERS)
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -o $@
-
-$(B)/tests/test_activity: tests/test_activity.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.a $(PUBLIC_HEADERS)
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -o $@
-
-$(B)/tests/test_cxx: tests/test_cxx.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.a $(PUBLIC_HEADERS)
+# Most tests drive converted code through the runtime (+ the APK reader for assets).
+$(B)/tests/test_%: tests/test_%.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.a $(PUBLIC_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -o $@
 
@@ -240,19 +209,13 @@ $(B)/tests/test_apk: tests/test_apk.c $(B)/libhenge-apk.a $(APK_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -Iapk $< $(B)/libhenge-apk.a -lz -o $@
 
-# Converted dylib for the macOS tests, ad-hoc signed by henge-convert's built-in
-# signer and checked with Apple's codesign. Always reconverted so CONVERT_FLAGS
+# Converted dylibs for the macOS tests, ad-hoc signed by henge-convert's built-in
+# signer and checked with Apple's codesign. Always reconverted (FORCE) so CONVERT_FLAGS
 # changes take effect.
-.PHONY: $(B)/tests/libadd.dylib
-$(B)/tests/libadd.dylib: $(B)/samples/libadd.so $(B)/henge-convert
+.PHONY: FORCE
+$(B)/tests/%.dylib: $(B)/samples/%.so $(B)/henge-convert FORCE
 	@mkdir -p $(@D)
-	$(B)/henge-convert --platform macos --sign $(CONVERT_FLAGS) -m $(B)/tests/libadd.manifest.json -o $@ $<
-	codesign -v $@
-
-.PHONY: $(B)/tests/libpatch.dylib
-$(B)/tests/libpatch.dylib: $(B)/samples/libpatch.so $(B)/henge-convert
-	@mkdir -p $(@D)
-	$(B)/henge-convert --platform macos --sign $(CONVERT_FLAGS) -m $(B)/tests/libpatch.manifest.json -o $@ $<
+	$(B)/henge-convert --platform macos --sign $(CONVERT_FLAGS) -m $(B)/tests/$*.manifest.json -o $@ $<
 	codesign -v $@
 
 test-patch: $(B)/tests/test_patch $(B)/tests/libpatch.dylib ## run patched svc / tpidr_el0 / TLS / IFUNC code on macOS
@@ -270,20 +233,8 @@ $(B)/tests/dl: $(B)/samples/libdep.so $(B)/samples/libbase.so $(B)/henge-convert
 test-dl: $(B)/tests/test_dl $(B)/tests/dl ## DT_NEEDED loading, APS2 and libdl on macOS
 	$(B)/tests/test_dl $(B)/tests/dl
 
-.PHONY: $(B)/tests/libshim.dylib
-$(B)/tests/libshim.dylib: $(B)/samples/libshim.so $(B)/henge-convert
-	@mkdir -p $(@D)
-	$(B)/henge-convert --platform macos --sign $(CONVERT_FLAGS) -o $@ $<
-	codesign -v $@
-
 test-shim: $(B)/tests/test_shim $(B)/tests/libshim.dylib ## pthread / errno / fd / ALooper / AConfiguration shims on macOS
 	$(B)/tests/test_shim $(B)/tests/libshim.dylib
-
-.PHONY: $(B)/tests/libnative.dylib
-$(B)/tests/libnative.dylib: $(B)/samples/libnative.so $(B)/henge-convert
-	@mkdir -p $(@D)
-	$(B)/henge-convert --platform macos --sign $(CONVERT_FLAGS) -o $@ $<
-	codesign -v $@
 
 test-activity: $(B)/tests/test_activity $(B)/tests/libnative.dylib $(B)/samples/sample.apk ## run a native_app_glue NativeActivity through the host on macOS
 	$(B)/tests/test_activity $(B)/tests/libnative.dylib $(B)/samples/sample.apk
@@ -299,19 +250,13 @@ test-sign: $(B)/henge-convert $(B)/samples/libadd.so ## sign with a keychain ide
 	  echo "PASS: test_sign"; \
 	else echo "SKIP: test_sign (no '$(SIGN_IDENTITY)' identity in the keychain)"; fi
 
-.PHONY: $(B)/tests/libcxx.dylib
-$(B)/tests/libcxx.dylib: $(B)/samples/libcxx.so $(B)/henge-convert
-	@mkdir -p $(@D)
-	$(B)/henge-convert --platform macos --sign $(CONVERT_FLAGS) -o $@ $<
-	codesign -v $@
-
 test-cxx: $(B)/tests/test_cxx $(B)/tests/libcxx.dylib ## C++ (libc++, exceptions, RTTI, threads) on macOS
 	$(B)/tests/test_cxx $(B)/tests/libcxx.dylib
 
 test-vm: $(B)/tests/test_vm ## run Java test code on the henge-vm bytecode interpreter
 	$(B)/tests/test_vm vm/tests/vmtest.dex 'LVmTest;'
 	$(B)/tests/test_vm vm/tests/kttest.dex 'Lkt/KtTestKt;'
-	$(B)/tests/test_vm vm/tests/androidtest.dex 'LAndroidTest;'
+	$(B)/tests/test_vm vm/tests/vmtest.dex 'LAndroidTest;'
 
 test-layout: $(B)/tests/test_layout $(B)/tests/libadd.dylib ## check the converted Mach-O layout
 	$(B)/tests/test_layout $(B)/samples/libadd.so $(B)/tests/libadd.dylib
