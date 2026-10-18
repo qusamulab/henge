@@ -44,7 +44,7 @@ APP_DD  := $(B)/app/dd
 APP_OUT := $(APP_DD)/Build/Products/Debug-iphonesimulator/henge.app
 
 .DEFAULT_GOAL := all
-.PHONY: all help samples samples-apk tests test test-layout test-m1 test-patch test-dl test-shim test-cxx test-activity test-sign test-apk app-dylib app app-run clean
+.PHONY: all help samples samples-apk tests test test-layout test-m1 test-patch test-dl test-shim test-cxx test-vm test-activity test-sign test-apk app-dylib app app-run clean
 
 all: $(B)/henge-convert $(B)/henge-apk $(B)/libhenge-runtime.a samples tests ## build the tools, runtime, sample and tests
 
@@ -78,6 +78,25 @@ $(B)/runtime/%.o: runtime/%.S
 	$(CC) -c $< -o $@
 
 $(B)/libhenge-runtime.a: $(RUNTIME_OBJS)
+	rm -f $@
+	$(AR) rcs $@ $^
+
+# ---- henge-vm: a Dalvik bytecode interpreter (vm/) with its own core class library (vm/core) ----
+VM_SRCS := $(wildcard vm/*.c)
+VM_OBJS := $(patsubst vm/%.c,$(B)/vm/%.o,$(VM_SRCS)) $(B)/vm/core_dex.o
+
+$(B)/vm/%.o: vm/%.c vm/vm.h
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -Ivm -c $< -o $@
+
+$(B)/vm/core_dex.c: vm/core/henge-core.dex scripts/embed-dex.py
+	@mkdir -p $(@D)
+	python3 scripts/embed-dex.py $< $@ vm_core_dex
+
+$(B)/vm/core_dex.o: $(B)/vm/core_dex.c
+	$(CC) -std=c11 -O2 -c $< -o $@
+
+$(B)/libhenge-vm.a: $(VM_OBJS)
 	rm -f $@
 	$(AR) rcs $@ $^
 
@@ -202,6 +221,10 @@ $(B)/tests/test_cxx: tests/test_cxx.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -o $@
 
+$(B)/tests/test_vm: tests/test_vm.c $(B)/libhenge-vm.a
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I. $< $(B)/libhenge-vm.a -lm -o $@
+
 $(B)/tests/test_layout: tests/test_layout.c $(PUBLIC_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $< -o $@
@@ -278,6 +301,9 @@ $(B)/tests/libcxx.dylib: $(B)/samples/libcxx.so $(B)/henge-convert
 test-cxx: $(B)/tests/test_cxx $(B)/tests/libcxx.dylib ## C++ (libc++, exceptions, RTTI, threads) on macOS
 	$(B)/tests/test_cxx $(B)/tests/libcxx.dylib
 
+test-vm: $(B)/tests/test_vm ## run Java test code on the henge-vm bytecode interpreter
+	$(B)/tests/test_vm vm/tests/vmtest.dex
+
 test-layout: $(B)/tests/test_layout $(B)/tests/libadd.dylib ## check the converted Mach-O layout
 	$(B)/tests/test_layout $(B)/samples/libadd.so $(B)/tests/libadd.dylib
 
@@ -288,7 +314,7 @@ test-apk: $(B)/tests/test_apk $(B)/samples/sample.apk $(B)/henge-apk ## read the
 	$(B)/tests/test_apk $(B)/samples/sample.apk $(B)/samples/libadd.so samples/apk/hello.txt
 	$(B)/henge-apk info $(B)/samples/sample.apk
 
-test: test-layout test-m1 test-patch test-dl test-shim test-cxx test-activity test-sign test-apk ## run all macOS tests
+test: test-layout test-m1 test-patch test-dl test-shim test-cxx test-vm test-activity test-sign test-apk ## run all macOS tests
 	@echo "ALL TESTS PASSED"
 
 # ---- iOS host app (app/) ----
