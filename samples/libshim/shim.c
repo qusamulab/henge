@@ -1,3 +1,4 @@
+#define _GNU_SOURCE /* pipe2 */
 /* Exercises the pthread / errno / fd / liblog / ALooper / AConfiguration shims from Android
  * code. Each t_* returns 0 on success, else the number of the first failing step. */
 #include <android/configuration.h>
@@ -156,5 +157,34 @@ int t_config(void) {
 int t_log(void) {
     STEP(1, __android_log_print(ANDROID_LOG_INFO, "henge-test", "int %d str %s hex %x", 42, "ok", 255) > 0);
     STEP(2, __android_log_write(ANDROID_LOG_WARN, "henge-test", "plain") > 0);
+    return 0;
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+
+/* printf family: ints, doubles, strings mixed, then enough arguments to spill onto the stack. */
+int t_format(void) {
+    char buf[256];
+    snprintf(buf, sizeof buf, "%d %s %.2f %c|%5.1f|%ld", 7, "x", 3.14159, 'z', 2.5, 99L);
+    STEP(1, strcmp(buf, "7 x 3.14 z|  2.5|99") == 0);
+    snprintf(buf, sizeof buf, "%d %d %d %d %d %d %d %d %d %d", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    STEP(2, strcmp(buf, "1 2 3 4 5 6 7 8 9 10") == 0);
+    snprintf(buf, sizeof buf, "%f %f %f %f %f %f %f %f %f %f", 1., 2., 3., 4., 5., 6., 7., 8., 9., 10.);
+    STEP(3, strcmp(buf, "1.000000 2.000000 3.000000 4.000000 5.000000 6.000000 7.000000 8.000000 9.000000 10.000000") == 0);
+    snprintf(buf, sizeof buf, "%s=%d (%.1f%%) %s=%d %s=%.3f", "a", 1, 12.5, "b", 2, "c", 0.5);
+    STEP(4, strcmp(buf, "a=1 (12.5%) b=2 c=0.500") == 0);
+    snprintf(buf, sizeof buf, "%*d|%-4d|%04d", 5, 42, 7, 9);
+    STEP(5, strcmp(buf, "   42|7   |0009") == 0);
+    sprintf(buf, "%x-%o", 255, 8);
+    STEP(6, strcmp(buf, "ff-10") == 0);
+
+    int a = 0;
+    float f = 0;
+    char word[16] = {0};
+    STEP(7, sscanf("12 3.5 abc", "%d %f %15s", &a, &f, word) == 3);
+    STEP(8, a == 12 && f == 3.5f && strcmp(word, "abc") == 0);
+    double d = 0;
+    STEP(9, sscanf("speed=380.5", "speed=%lf", &d) == 1 && d == 380.5);
     return 0;
 }

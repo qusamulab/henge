@@ -47,7 +47,7 @@ struct APKDetailView: View {
                     .listRowBackground(Color.clear)
                 } else {
                     Button {
-                        converter.run(apk: apk.url)
+                        converter.run(apk: apk.url, display: true)
                     } label: {
                         Label(converter.state == .running ? "Running\u{2026}" : "Convert & Run", systemImage: "play.fill")
                             .frame(maxWidth: .infinity)

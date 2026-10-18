@@ -6,6 +6,7 @@
 #define HENGE_SHIM_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 struct hr_shim_entry {
     const char *name;
@@ -21,6 +22,14 @@ HR_SHIM_TABLE(core);
 HR_SHIM_TABLE(dl);
 HR_SHIM_TABLE(posix);
 HR_SHIM_TABLE(android);
+HR_SHIM_TABLE(assets);
+HR_SHIM_TABLE(libc);
+
+/* printf-style formatting of arguments passed the AAPCS64 variadic way (shim_libc.c): ints are the
+ * integer-register arguments after the named ones, fps the eight d registers, stack the first
+ * 12 stack slots. n == 0 formats without a size limit. */
+int hr_format(char *buf, size_t n, const char *fmt, const uint64_t *ints, size_t nints, const double *fps,
+              const uint64_t *stack);
 
 /* Returns the shim implementation of the bionic symbol `name`, or NULL. */
 void *henge_shim_lookup(const char *name);

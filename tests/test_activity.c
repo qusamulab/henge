@@ -17,8 +17,8 @@ static int failures;
 
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
-        fprintf(stderr, "usage: %s path/to/libnative.dylib\n", argv[0]);
+    if (argc < 2) {
+        fprintf(stderr, "usage: %s path/to/libnative.dylib [apk-with-assets]\n", argv[0]);
         return 2;
     }
     if (!dlopen(argv[1], RTLD_NOW | RTLD_LOCAL)) {
@@ -38,7 +38,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    henge_activity *act = henge_activity_start(img, "/tmp", err, sizeof err);
+    struct henge_activity_opts opts = {.data_path = "/tmp", .apk_path = argc > 2 ? argv[2] : NULL};
+    henge_activity *act = henge_activity_start(img, &opts, err, sizeof err);
     CHECK("henge_activity_start", act != NULL);
     if (!act) {
         printf("info  %s\n", err);
@@ -48,6 +49,33 @@ int main(int argc, char **argv)
     CHECK("android_main ran (stage 1)", stage() & 1);
     CHECK("window delivered (stage 2)", stage() & 2);
     CHECK("focus delivered (stage 4)", stage() & 4);
+
+    /* assets/hello.txt from the APK, read by android_main through AAssetManager */
+    if (argc > 2) {
+        int (*asset_len)(void) = (int (*)(void))henge_dlsym(img, "native_asset_len");
+        CHECK("AAssetManager reads assets/hello.txt", asset_len && asset_len() > 0);
+    }
+
+    /* touches: one finger down/move/up, then two fingers */
+    int (*touches)(void) = (int (*)(void))henge_dlsym(img, "native_touches");
+    int (*pointers)(void) = (int (*)(void))henge_dlsym(img, "native_pointers");
+    int (*last_action)(void) = (int (*)(void))henge_dlsym(img, "native_last_action");
+    float (*last_x)(void) = (float (*)(void))henge_dlsym(img, "native_last_x");
+    float (*last_y)(void) = (float (*)(void))henge_dlsym(img, "native_last_y");
+    henge_activity_touch(act, HENGE_TOUCH_BEGAN, 0, 120.5f, 340.25f);
+    for (int i = 0; i < 200 && touches() < 1; i++) usleep(10000);
+    CHECK("touch down arrives (ACTION_DOWN, 1 pointer)", touches() == 1 && last_action() == 0 && pointers() == 1);
+    CHECK("touch position", last_x() == 120.5f && last_y() == 340.25f);
+    henge_activity_touch(act, HENGE_TOUCH_MOVED, 0, 130.0f, 350.0f);
+    for (int i = 0; i < 200 && touches() < 2; i++) usleep(10000);
+    CHECK("touch move arrives (ACTION_MOVE)", touches() == 2 && last_action() == 2 && last_x() == 130.0f);
+    henge_activity_touch(act, HENGE_TOUCH_BEGAN, 1, 50.0f, 60.0f);
+    for (int i = 0; i < 200 && touches() < 3; i++) usleep(10000);
+    CHECK("second finger (ACTION_POINTER_DOWN, 2 pointers)", touches() == 3 && last_action() == (5 | (1 << 8)) && pointers() == 2);
+    henge_activity_touch(act, HENGE_TOUCH_ENDED, 1, 50.0f, 60.0f);
+    henge_activity_touch(act, HENGE_TOUCH_ENDED, 0, 130.0f, 350.0f);
+    for (int i = 0; i < 200 && touches() < 5; i++) usleep(10000);
+    CHECK("fingers up (ACTION_UP)", touches() == 5 && last_action() == 1);
 
     henge_activity_stop(act);
     CHECK("destroy delivered (stage 8)", stage() & 8);

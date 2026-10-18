@@ -49,10 +49,13 @@ targets:
         MARKETING_VERSION: "0.1"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_OBJC_BRIDGING_HEADER: HengeHost/Core/henge-Bridging-Header.h
-        HEADER_SEARCH_PATHS: $(SRCROOT)/../include
+        HEADER_SEARCH_PATHS: $(SRCROOT)/../include $(SRCROOT)/..
         GCC_C_LANGUAGE_STANDARD: c11
+        CLANG_ENABLE_OBJC_ARC: YES
+        GCC_WARN_INHIBIT_ALL_WARNINGS: NO
+        OTHER_CFLAGS: $(inherited) -Wno-deprecated-declarations
         LD_RUNPATH_SEARCH_PATHS: $(inherited) @executable_path/Frameworks
-        OTHER_LDFLAGS: $(inherited) -lz -framework Security
+        OTHER_LDFLAGS: $(inherited) -lz -framework Security -framework OpenGLES -framework AudioToolbox -framework AVFoundation -framework QuartzCore
     preBuildScripts:
       - name: Convert libadd.so (make app-dylib)
         basedOnDependencyAnalysis: false

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
+    @EnvironmentObject private var converter: ConvertRunner
     enum Tab: String { case library, signing, diagnostics }
 
     /// Launch with `-initialTab diagnostics` to open on the Diagnostics tab (used for screenshots).
@@ -17,6 +18,9 @@ struct RootView: View {
             DiagnosticsView()
                 .tabItem { Label("Diagnostics", systemImage: "stethoscope") }
                 .tag(Tab.diagnostics)
+        }
+        .fullScreenCover(isPresented: Binding(get: { converter.presenting }, set: { if !$0 { converter.stop() } })) {
+            GameScreen(runner: converter)
         }
     }
 }

@@ -13,6 +13,7 @@
 #include "shim.h"
 #include "henge/henge.h"
 
+#include <dlfcn.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,11 +78,22 @@ static const struct {
     {hr_shim_dl, &hr_shim_dl_count},
     {hr_shim_posix, &hr_shim_posix_count},
     {hr_shim_android, &hr_shim_android_count},
+    {hr_shim_assets, &hr_shim_assets_count},
+    {hr_shim_libc, &hr_shim_libc_count},
 };
 
-static pthread_once_t g_index_once = PTHREAD_ONCE_INIT;
+/* Tables added at run time by the host (henge_shim_register). */
+#define MAX_DYNAMIC_TABLES 8
+static struct {
+    const struct henge_shim_entry *entries;
+    size_t count;
+} g_dynamic[MAX_DYNAMIC_TABLES];
+static size_t g_ndynamic;
+
+static pthread_mutex_t g_index_lock = PTHREAD_MUTEX_INITIALIZER;
 static const struct hr_shim_entry **g_index;
 static size_t g_nindex;
+static int g_index_valid;
 
 static int cmp_entry(const void *a, const void *b)
 {
@@ -89,23 +101,43 @@ static int cmp_entry(const void *a, const void *b)
                   (*(const struct hr_shim_entry *const *)b)->name);
 }
 
+/* Dynamic tables come first so the host can override a built-in name. Caller holds g_index_lock. */
 static void build_index(void)
 {
     size_t n = 0;
     for (size_t t = 0; t < sizeof k_tables / sizeof k_tables[0]; t++)
         n += *k_tables[t].count;
+    for (size_t t = 0; t < g_ndynamic; t++)
+        n += g_dynamic[t].count;
+    free(g_index);
     g_index = malloc(n * sizeof *g_index);
     if (!g_index)
         abort();
+    g_nindex = 0;
     for (size_t t = 0; t < sizeof k_tables / sizeof k_tables[0]; t++)
         for (size_t i = 0; i < *k_tables[t].count; i++)
             g_index[g_nindex++] = &k_tables[t].entries[i];
+    for (size_t t = 0; t < g_ndynamic; t++)
+        for (size_t i = 0; i < g_dynamic[t].count; i++)
+            g_index[g_nindex++] = (const struct hr_shim_entry *)&g_dynamic[t].entries[i];
     qsort(g_index, g_nindex, sizeof *g_index, cmp_entry);
+    g_index_valid = 1;
 }
 
-void *henge_shim_lookup(const char *name)
+void henge_shim_register(const struct henge_shim_entry *entries, size_t count)
 {
-    pthread_once(&g_index_once, build_index);
+    pthread_mutex_lock(&g_index_lock);
+    if (g_ndynamic < MAX_DYNAMIC_TABLES) {
+        g_dynamic[g_ndynamic].entries = entries;
+        g_dynamic[g_ndynamic].count = count;
+        g_ndynamic++;
+        g_index_valid = 0;
+    }
+    pthread_mutex_unlock(&g_index_lock);
+}
+
+static void *lookup_index(const char *name)
+{
     size_t lo = 0, hi = g_nindex;
     while (lo < hi) {
         size_t mid = lo + (hi - lo) / 2;
@@ -117,6 +149,23 @@ void *henge_shim_lookup(const char *name)
         else
             lo = mid + 1;
     }
+    return NULL;
+}
+
+void *henge_shim_lookup(const char *name)
+{
+    pthread_mutex_lock(&g_index_lock);
+    if (!g_index_valid)
+        build_index();
+    void *p = lookup_index(name);
+    pthread_mutex_unlock(&g_index_lock);
+    if (p)
+        return p;
+    /* OpenGL ES entry points (glClear, glTexImage2D, ...) are the same C functions on iOS: pass
+     * them through to the platform's OpenGLES framework when the host app links it. Only names of
+     * the form gl<Uppercase> qualify, so libc's glob() and friends are not caught. */
+    if (name[0] == 'g' && name[1] == 'l' && name[2] >= 'A' && name[2] <= 'Z')
+        return dlsym(RTLD_DEFAULT, name);
     return NULL;
 }
 
