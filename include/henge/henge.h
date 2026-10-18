@@ -128,12 +128,36 @@ void *henge_dlsym(henge_image *image, const char *name);
 
 typedef struct henge_activity henge_activity;
 
+struct henge_activity_opts {
+    const char *data_path; /* internal, external and OBB data path */
+    const char *apk_path;  /* the APK served by AAssetManager (assets/), or NULL for none */
+    void *layer;           /* platform surface for the window (a CAEAGLLayer on iOS); NULL = placeholder */
+    int width, height;     /* window size in pixels */
+};
+
 /* Runs an Android NativeActivity library (one exporting ANativeActivity_onCreate, e.g. built with
- * native_app_glue): creates a stand-in ANativeActivity, calls onCreate, then onStart / onResume,
- * hands it a placeholder window and input queue, and gives it focus. native_app_glue's onCreate
- * returns once the app thread (android_main) is running. data_path becomes the internal, external
- * and OBB data paths. Returns NULL on failure (see err). */
-henge_activity *henge_activity_start(henge_image *lib, const char *data_path, char *err, size_t errlen);
+ * native_app_glue): creates a stand-in ANativeActivity (stub JNI, assets from the APK), calls onCreate,
+ * then onStart / onResume, hands it the window and an input queue, and gives it focus.
+ * native_app_glue's onCreate returns once the app thread (android_main) is running.
+ * Returns NULL on failure (see err). */
+henge_activity *henge_activity_start(henge_image *lib, const struct henge_activity_opts *opts, char *err,
+                                     size_t errlen);
+
+/* The surface changed size (rotation, layout). */
+void henge_activity_resize(henge_activity *activity, int width, int height);
+
+enum henge_touch_phase { HENGE_TOUCH_BEGAN, HENGE_TOUCH_MOVED, HENGE_TOUCH_ENDED, HENGE_TOUCH_CANCELLED };
+
+/* Delivers one touch (id identifies the finger; x, y in window pixels) as Android motion events. */
+void henge_activity_touch(henge_activity *activity, enum henge_touch_phase phase, int id, float x, float y);
+
+/* Registers extra shim entries (name -> implementation), e.g. the platform's EGL and AAudio. Call
+ * before loading any library. The table must stay valid. */
+struct henge_shim_entry {
+    const char *name;
+    void *addr;
+};
+void henge_shim_register(const struct henge_shim_entry *entries, size_t count);
 
 /* Receives every __android_log_print / __android_log_write line from Android code (prio is an
  * ANDROID_LOG_* value). Called on the logging thread. Pass NULL to remove. */

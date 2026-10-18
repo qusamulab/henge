@@ -6,6 +6,12 @@ struct HengeApp: App {
     @StateObject private var library = APKLibrary()
     @StateObject private var converter = ConvertRunner()
 
+    init() {
+        // Platform shims for Android's EGL and AAudio, before any library is loaded.
+        henge_register_egl_shims()
+        henge_register_audio_shims()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -21,7 +27,9 @@ struct HengeApp: App {
                     guard let name = UserDefaults.standard.string(forKey: "convertRun"),
                           converter.state == .idle else { return }
                     let seconds = UserDefaults.standard.double(forKey: "convertRunSeconds")
-                    converter.run(apk: library.directory.appendingPathComponent(name), stopAfter: seconds > 0 ? seconds : 1)
+                    let display = UserDefaults.standard.bool(forKey: "display")
+                    converter.run(apk: library.directory.appendingPathComponent(name),
+                                  stopAfter: seconds > 0 ? seconds : (display ? nil : 1), display: display)
                 }
         }
     }

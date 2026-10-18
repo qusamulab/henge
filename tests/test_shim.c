@@ -48,6 +48,7 @@ int main(int argc, char **argv)
     run(img, "t_looper");
     run(img, "t_config");
     run(img, "t_log");
+    run(img, "t_format");
 
     printf("%s: test_shim (%d failure%s)\n", failures ? "FAIL" : "PASS", failures, failures == 1 ? "" : "s");
     return failures ? 1 : 0;

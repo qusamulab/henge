@@ -18,7 +18,7 @@ No JIT, no debugger, no jailbreak: henge **converts the APK's `.so` files to Mac
 
 ## Status
 
-Milestone **M1** (call a function in a converted `.so`) works on macOS, the iOS Simulator and a real iPhone. M2 is in progress: a `native_app_glue` NativeActivity APK is converted, signed with your own identity and run (`android_main`) entirely on an iPhone. There is no display or input yet. See [docs/roadmap.md](docs/roadmap.md).
+Milestone **M1** (call a function in a converted `.so`) works on macOS, the iOS Simulator and a real iPhone. M2 is in progress: a `native_app_glue` NativeActivity APK is converted, signed with your own identity and run (`android_main`) entirely on an iPhone. It draws with OpenGL ES, reads touch input and assets, and plays sound. See [docs/roadmap.md](docs/roadmap.md).
 
 | | macOS | iOS Simulator | iPhone |
 | --- | --- | --- | --- |
@@ -26,12 +26,17 @@ Milestone **M1** (call a function in a converted `.so`) works on macOS, the iOS 
 | `dlopen` + mini linker (`henge_link`) | ✅ | ✅ | ✅ |
 | Calls, globals via GOT, function-pointer tables, `init_array` | ✅ | ✅ | ✅ |
 | bionic shim: pthread objects, errno, fd I/O, liblog, ALooper, AConfiguration | ✅ | — | ✅ |
-| NativeActivity host (`android_main` lifecycle with a placeholder window) | ✅ | — | ✅ |
+| NativeActivity host (`android_main` lifecycle, touch input, `assets/`, stub JNI) | ✅ | — | ✅ |
+| OpenGL ES drawing (EGL on EAGL, GLES passed through to iOS), AAudio sound | — | — | ✅ |
 | APK → `.so` → Mach-O → signature with your identity → run, inside the app (`Convert & Run`) | — | — | ✅ |
 
 The host app reads an APK, extracts `lib/arm64-v8a/*.so`, converts it to Mach-O, **signs it on the device** and loads it. iOS only loads a library from the app container if it is signed by the same developer team as the app, so import your own identity once: export your Apple Development certificate and private key from Keychain Access as a `.p12`, open the app's **Signing** tab and import it (the `.p12` and its password stay in the device's Keychain; nothing leaves the phone). Without an identity the library gets an ad hoc signature, which iOS rejects (`code signature invalid`). `henge-convert --sign-identity NAME` and `--p12 FILE` (password in `$HENGE_P12_PASSWORD`) do the same on the Mac.
 
-A NativeActivity APK keeps running after **Convert & Run** until you tap **Stop**; its log lines appear on the screen. There is no display yet: the window handed to the app is a placeholder.
+A NativeActivity APK opens full screen after **Convert & Run**: EGL is implemented on EAGL (the app's window is a `CAEAGLLayer`), GLES calls go straight to iOS's OpenGL ES, touches arrive as Android motion events, `AAssetManager` reads the APK's `assets/`, and AAudio plays through an AudioUnit. Tap ✕ to close it; the ● button records the screen with ReplayKit.
+
+<p><img src="docs/images/screenshots/game.png" width="240" alt="Catch, the sample game, running on an iPhone"></p>
+
+`samples/libgame` is a small C game (NativeActivity + OpenGL ES 2 + touch + AAudio + `assets/game.cfg`): drag to move the paddle and catch the squares; it plays itself after 5 idle seconds. `make samples-apk` builds `build/samples/game.apk`. Java / Kotlin code (dex) is not supported: that needs ART (M5). JNI is a stub, so games that depend on Java objects do not run.
 
 **Security notes.** Signing keys are your own, never part of this repository (`.gitignore` covers `*.p12` and `*.mobileprovision`; `app/Local.xcconfig` holds your team ID). The imported `.p12` and its password are stored in the device's Keychain (this device only, after first unlock), so anyone who can unlock the phone and run henge can sign with that identity; remove it from the Signing tab when you no longer need it, and delete the `.p12` you exported. henge signs the native code of whatever APK you run with your developer certificate, and that code runs with the app's full privileges inside the iOS sandbox, so only run APKs you trust. The app's `Documents` folder is visible in the Files app (used to import the `.p12`).
 

@@ -39,16 +39,43 @@ struct ALooper {
     size_t npending, pending_pos;
 };
 
-/* The object behind AInputQueue*: a pipe whose read end is registered with the looper.
- * Input events are not delivered yet. */
+/* An input event (AInputEvent*): a motion event with up to HR_MAX_POINTERS touches, or a key event. */
+#define HR_MAX_POINTERS 10
+#define AL_INPUT_TYPE_KEY 1
+#define AL_INPUT_TYPE_MOTION 2
+#define AL_SOURCE_TOUCHSCREEN 0x1002
+#define AL_SOURCE_KEYBOARD 0x101
+
+struct AInputEvent {
+    int type;
+    int source;
+    int action; /* AMOTION_EVENT_ACTION_* | (pointer index << 8), or AKEY_EVENT_ACTION_* */
+    int key_code;
+    int64_t down_time_ns, event_time_ns;
+    int npointers;
+    struct {
+        int id;
+        float x, y;
+    } pointers[HR_MAX_POINTERS];
+};
+
+/* The object behind AInputQueue*: a FIFO of events plus a pipe whose read end is registered with the
+ * looper, one byte per queued event. */
 struct AInputQueue {
     int pipe[2];
     struct ALooper *looper;
+    pthread_mutex_t lock;
+    struct AInputEvent **events;
+    size_t nevents, cap;
 };
+
+/* Thread-safe; copies the event. */
+void hr_input_queue_push(struct AInputQueue *q, const struct AInputEvent *ev);
 
 /* The object behind ANativeWindow*: a placeholder surface of a given size. */
 struct ANativeWindow {
     int width, height, format;
+    void *layer; /* the platform surface (a CAEAGLLayer on iOS), or NULL for a placeholder */
 };
 
 /* Layout of <android/native_activity.h> on LP64. */
@@ -86,6 +113,11 @@ struct hr_native_activity {
 };
 
 struct AInputQueue *hr_input_queue_new(void);
+struct AAssetManager;
+struct AAssetManager *hr_asset_manager_new(const char *apk_path);
+void hr_asset_manager_free(struct AAssetManager *mgr);
+void hr_asset_manager_set_default(struct AAssetManager *mgr); /* what AAssetManager_fromJava returns */
+extern void *hr_jni_vm, *hr_jni_env; /* stub JavaVM* / JNIEnv* for activity->vm / env */
 void hr_input_queue_free(struct AInputQueue *q);
 
 #endif

@@ -42,21 +42,17 @@ static void log_emit(int prio, const char *tag, const char *msg)
     fprintf(stderr, "[%s] %s\n", tag ? tag : "", msg);
 }
 
-/* __android_log_print is variadic. AAPCS64 passes variadic arguments like fixed ones (integers in
- * x3..x7, then on the stack in 8-byte slots), but Darwin's va_list reads them all from the stack.
- * So declare them as fixed uint64_t parameters (the ones past x7 land on the stack in the same
- * slots) and lay them out as a Darwin va_list. Limits: LOG_MAX_ARGS variadic arguments, none of
- * them floating point (those arrive in v0..v7). Unused slots read harmless stack memory. */
-#define LOG_MAX_ARGS 21
-static int shim_log_print(int prio, const char *tag, const char *fmt, uint64_t a3, uint64_t a4,
-                          uint64_t a5, uint64_t a6, uint64_t a7, uint64_t s0, uint64_t s1, uint64_t s2,
-                          uint64_t s3, uint64_t s4, uint64_t s5, uint64_t s6, uint64_t s7, uint64_t s8,
-                          uint64_t s9, uint64_t s10, uint64_t s11, uint64_t s12, uint64_t s13, uint64_t s14, uint64_t s15)
+/* __android_log_print is variadic: see shim_libc.c for how its arguments are recovered. */
+static int shim_log_print(int prio, const char *tag, const char *fmt, uint64_t a3, uint64_t a4, uint64_t a5,
+                          uint64_t a6, uint64_t a7, double d0, double d1, double d2, double d3, double d4,
+                          double d5, double d6, double d7, uint64_t s0, uint64_t s1, uint64_t s2, uint64_t s3,
+                          uint64_t s4, uint64_t s5, uint64_t s6, uint64_t s7, uint64_t s8, uint64_t s9,
+                          uint64_t s10, uint64_t s11)
 {
-    uint64_t args[LOG_MAX_ARGS] = {a3, a4, a5, a6, a7, s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15};
+    const uint64_t ints[] = {a3, a4, a5, a6, a7}, stack[] = {s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11};
+    const double fps[] = {d0, d1, d2, d3, d4, d5, d6, d7};
     char buf[1024];
-    va_list ap = (va_list)args;
-    vsnprintf(buf, sizeof buf, fmt, ap);
+    hr_format(buf, sizeof buf, fmt, ints, 5, fps, stack);
     log_emit(prio, tag, buf);
     return 1;
 }
@@ -257,7 +253,7 @@ static int shim_looper_poll_all(int timeout_ms, int *out_fd, int *out_events, vo
     return r;
 }
 
-/* ---- AInputQueue ---- */
+/* ---- AInputQueue and input events ---- */
 
 struct AInputQueue *hr_input_queue_new(void)
 {
@@ -268,6 +264,9 @@ struct AInputQueue *hr_input_queue_new(void)
         free(q);
         return NULL;
     }
+    set_nonblock(q->pipe[0]);
+    set_nonblock(q->pipe[1]);
+    pthread_mutex_init(&q->lock, NULL);
     return q;
 }
 
@@ -275,9 +274,37 @@ void hr_input_queue_free(struct AInputQueue *q)
 {
     if (!q)
         return;
+    for (size_t i = 0; i < q->nevents; i++)
+        free(q->events[i]);
+    free(q->events);
     close(q->pipe[0]);
     close(q->pipe[1]);
+    pthread_mutex_destroy(&q->lock);
     free(q);
+}
+
+void hr_input_queue_push(struct AInputQueue *q, const struct AInputEvent *ev)
+{
+    struct AInputEvent *copy = malloc(sizeof *copy);
+    if (!copy)
+        return;
+    *copy = *ev;
+    pthread_mutex_lock(&q->lock);
+    if (q->nevents == q->cap) {
+        size_t cap = q->cap ? q->cap * 2 : 16;
+        struct AInputEvent **n = realloc(q->events, cap * sizeof *n);
+        if (!n) {
+            pthread_mutex_unlock(&q->lock);
+            free(copy);
+            return;
+        }
+        q->events = n;
+        q->cap = cap;
+    }
+    q->events[q->nevents++] = copy;
+    pthread_mutex_unlock(&q->lock);
+    char b = 1;
+    (void)!write(q->pipe[1], &b, 1);
 }
 
 static void shim_input_attach(struct AInputQueue *q, struct ALooper *l, int ident, hr_looper_cb cb, void *data)
@@ -295,36 +322,66 @@ static void shim_input_detach(struct AInputQueue *q)
 
 static int shim_input_has_events(struct AInputQueue *q)
 {
-    (void)q;
+    pthread_mutex_lock(&q->lock);
+    int has = q->nevents > 0;
+    pthread_mutex_unlock(&q->lock);
+    return has;
+}
+
+/* The event stays owned by the queue's caller until AInputQueue_finishEvent. */
+static int shim_input_get_event(struct AInputQueue *q, struct AInputEvent **event)
+{
+    pthread_mutex_lock(&q->lock);
+    if (q->nevents == 0) {
+        pthread_mutex_unlock(&q->lock);
+        return -L_EAGAIN;
+    }
+    *event = q->events[0];
+    memmove(q->events, q->events + 1, (q->nevents - 1) * sizeof *q->events);
+    q->nevents--;
+    pthread_mutex_unlock(&q->lock);
+    char b;
+    (void)!read(q->pipe[0], &b, 1);
     return 0;
 }
 
-static int shim_input_get_event(struct AInputQueue *q, void **event)
+static int shim_input_pre_dispatch(struct AInputQueue *q, struct AInputEvent *event)
 {
     (void)q;
     (void)event;
-    return -L_EAGAIN; /* nothing queued */
+    return 0; /* no input method to offer it to first */
 }
 
-static int shim_input_pre_dispatch(struct AInputQueue *q, void *event)
+static void shim_input_finish(struct AInputQueue *q, struct AInputEvent *event, int handled)
 {
     (void)q;
-    (void)event;
-    return 0;
-}
-
-static void shim_input_finish(struct AInputQueue *q, void *event, int handled)
-{
-    (void)q;
-    (void)event;
     (void)handled;
+    free(event);
 }
 
-static int shim_input_event_type(const void *event)
+static int shim_event_type(const struct AInputEvent *e) { return e->type; }
+static int shim_event_source(const struct AInputEvent *e) { return e->source; }
+static int shim_event_device(const struct AInputEvent *e) { (void)e; return 0; }
+
+static int shim_motion_action(const struct AInputEvent *e) { return e->action; }
+static int shim_zero(const struct AInputEvent *e) { (void)e; return 0; }
+static int64_t shim_down_time(const struct AInputEvent *e) { return e->down_time_ns; }
+static int64_t shim_event_time(const struct AInputEvent *e) { return e->event_time_ns; }
+static size_t shim_pointer_count(const struct AInputEvent *e) { return (size_t)e->npointers; }
+
+static int shim_pointer_id(const struct AInputEvent *e, size_t i)
 {
-    (void)event;
-    return 0;
+    return i < (size_t)e->npointers ? e->pointers[i].id : 0;
 }
+
+static float shim_motion_x(const struct AInputEvent *e, size_t i) { return i < (size_t)e->npointers ? e->pointers[i].x : 0; }
+static float shim_motion_y(const struct AInputEvent *e, size_t i) { return i < (size_t)e->npointers ? e->pointers[i].y : 0; }
+static float shim_one(const struct AInputEvent *e, size_t i) { (void)e; (void)i; return 1.0f; }
+static float shim_zerof(const struct AInputEvent *e, size_t i) { (void)e; (void)i; return 0.0f; }
+static float shim_offset(const struct AInputEvent *e) { (void)e; return 0.0f; }
+static int shim_tool_type(const struct AInputEvent *e, size_t i) { (void)e; (void)i; return 1; /* FINGER */ }
+static size_t shim_history_size(const struct AInputEvent *e) { (void)e; return 0; }
+static int shim_key_code(const struct AInputEvent *e) { return e->key_code; }
 
 /* ---- ANativeWindow / ANativeActivity ---- */
 
@@ -427,7 +484,36 @@ const struct hr_shim_entry hr_shim_android[] = {
     E("AInputQueue_getEvent", shim_input_get_event),
     E("AInputQueue_preDispatchEvent", shim_input_pre_dispatch),
     E("AInputQueue_finishEvent", shim_input_finish),
-    E("AInputEvent_getType", shim_input_event_type),
+    E("AInputEvent_getType", shim_event_type),
+    E("AInputEvent_getSource", shim_event_source),
+    E("AInputEvent_getDeviceId", shim_event_device),
+    E("AMotionEvent_getAction", shim_motion_action),
+    E("AMotionEvent_getFlags", shim_zero),
+    E("AMotionEvent_getMetaState", shim_zero),
+    E("AMotionEvent_getButtonState", shim_zero),
+    E("AMotionEvent_getEdgeFlags", shim_zero),
+    E("AMotionEvent_getDownTime", shim_down_time),
+    E("AMotionEvent_getEventTime", shim_event_time),
+    E("AMotionEvent_getXOffset", shim_offset),
+    E("AMotionEvent_getYOffset", shim_offset),
+    E("AMotionEvent_getPointerCount", shim_pointer_count),
+    E("AMotionEvent_getPointerId", shim_pointer_id),
+    E("AMotionEvent_getToolType", shim_tool_type),
+    E("AMotionEvent_getX", shim_motion_x),
+    E("AMotionEvent_getY", shim_motion_y),
+    E("AMotionEvent_getRawX", shim_motion_x),
+    E("AMotionEvent_getRawY", shim_motion_y),
+    E("AMotionEvent_getPressure", shim_one),
+    E("AMotionEvent_getSize", shim_zerof),
+    E("AMotionEvent_getHistorySize", shim_history_size),
+    E("AKeyEvent_getAction", shim_motion_action),
+    E("AKeyEvent_getKeyCode", shim_key_code),
+    E("AKeyEvent_getFlags", shim_zero),
+    E("AKeyEvent_getMetaState", shim_zero),
+    E("AKeyEvent_getRepeatCount", shim_zero),
+    E("AKeyEvent_getScanCode", shim_zero),
+    E("AKeyEvent_getDownTime", shim_down_time),
+    E("AKeyEvent_getEventTime", shim_event_time),
     E("ANativeWindow_getWidth", shim_window_width),
     E("ANativeWindow_getHeight", shim_window_height),
     E("ANativeWindow_getFormat", shim_window_format),

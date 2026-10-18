@@ -6,13 +6,17 @@ import os
 /// app. Mirrors what `henge-apk extract` + `henge-convert --sign-identity` + test_m1 do on the Mac.
 @MainActor
 final class ConvertRunner: ObservableObject {
-    enum State { case idle, running, active, finished }
+    enum State { case idle, running, awaitingSurface, active, finished }
 
     @Published private(set) var state: State = .idle
     @Published private(set) var lines: [String] = []
     @Published private(set) var failures = 0
 
     private var activity: OpaquePointer?
+    private var loaded: LoadedLibrary?
+    /// True while a game screen is up (the run was started with `display`).
+    @Published private(set) var presenting = false
+    private var displaying = false
     private var autoStop: Task<Void, Never>?
 
     /// Exactly `PASS: convert-run (0 failures)` / `FAIL: convert-run (N failures)`; scripts grep for it.
@@ -24,17 +28,29 @@ final class ConvertRunner: ObservableObject {
 
     /// Converts and loads the APK. A NativeActivity then keeps running (state .active) until `stop()`;
     /// with `stopAfter` it is stopped automatically (for runs driven from a script).
-    func run(apk: URL, stopAfter: TimeInterval? = nil) {
-        guard state != .running, state != .active else { return }
+    ///
+    /// With `display`, a NativeActivity gets a full-screen OpenGL ES surface (`GameScreen`) and touches;
+    /// without it, a placeholder window.
+    func run(apk: URL, stopAfter: TimeInterval? = nil, display: Bool = false) {
+        guard state != .running, state != .active, state != .awaitingSurface else { return }
         state = .running
+        displaying = display
         lines = []
         failures = 0
-        let session = ConvertSession(apk: apk) { [weak self] line, failed in
+        let session = ConvertSession(apk: apk, display: display) { [weak self] line, failed in
             DispatchQueue.main.async { self?.append(line, failed: failed) }
         }
         Task.detached(priority: .userInitiated) {
-            let activity = session.run()
+            let outcome = session.run()
             await MainActor.run {
+                if case .needsSurface(let lib) = outcome {
+                    self.loaded = lib
+                    self.presenting = true
+                    self.state = .awaitingSurface
+                    return
+                }
+                var activity: OpaquePointer?
+                if case .running(let a) = outcome { activity = a }
                 self.activity = activity
                 if activity != nil {
                     self.state = .active
@@ -51,9 +67,46 @@ final class ConvertRunner: ObservableObject {
         }
     }
 
+    /// The game surface is on screen: start the activity on it.
+    func startActivity(layer: UnsafeMutableRawPointer, width: Int, height: Int) {
+        guard state == .awaitingSurface, let lib = loaded else { return }
+        loaded = nil
+        state = .running
+        Task.detached(priority: .userInitiated) {
+            var err = [CChar](repeating: 0, count: 512)
+            let activity: OpaquePointer? = lib.dataPath.withCString { data in
+                lib.apkPath.withCString { apk in
+                    var opts = henge_activity_opts(data_path: data, apk_path: apk, layer: layer, width: Int32(width), height: Int32(height))
+                    return henge_activity_start(lib.image, &opts, &err, err.count)
+                }
+            }
+            await MainActor.run {
+                if let activity {
+                    self.activity = activity
+                    self.append("PASS  henge_activity_start (\(width)x\(height) surface, android_main is running)", failed: false)
+                    self.state = .active
+                } else {
+                    self.append("FAIL  henge_activity_start: \(String(cString: err))", failed: true)
+                    self.presenting = false
+                    self.finish()
+                }
+            }
+        }
+    }
+
+    func resize(width: Int, height: Int) {
+        if let activity { henge_activity_resize(activity, Int32(width), Int32(height)) }
+    }
+
+    func touch(_ phase: henge_touch_phase, id: Int32, x: Float, y: Float) {
+        if let activity { henge_activity_touch(activity, phase, id, x, y) }
+    }
+
     /// Drives the running NativeActivity down (onPause ... onDestroy).
     func stop() {
+        if state == .awaitingSurface { loaded = nil; presenting = false; append("note  closed before the surface was ready", failed: false); finish(); return }
         guard state == .active, let activity else { return }
+        presenting = false
         autoStop?.cancel()
         self.activity = nil
         state = .running
@@ -79,16 +132,25 @@ final class ConvertRunner: ObservableObject {
     }
 }
 
+/// A library that is loaded and waiting for a window.
+struct LoadedLibrary: @unchecked Sendable {
+    let image: OpaquePointer
+    let dataPath: String
+    let apkPath: String
+}
+
 /// One conversion + load, on a background thread. Reports each line through `emit`.
 private final class ConvertSession {
     private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "henge", category: "convert-run")
 
     private let apk: URL
+    private let display: Bool
     private let sink: (String, Bool) -> Void
     private var signer: SigningStore.Signer?
 
-    init(apk: URL, sink: @escaping (String, Bool) -> Void) {
+    init(apk: URL, display: Bool, sink: @escaping (String, Bool) -> Void) {
         self.apk = apk
+        self.display = display
         self.sink = sink
     }
 
@@ -102,8 +164,13 @@ private final class ConvertSession {
     private func fail(_ line: String) { emit("FAIL  \(line)", failed: true) }
     private func cString(_ buf: [CChar]) -> String { String(cString: buf) }
 
-    /// Returns the running NativeActivity, if the APK is one.
-    func run() -> OpaquePointer? {
+    enum Outcome {
+        case finished
+        case running(OpaquePointer)
+        case needsSurface(LoadedLibrary)
+    }
+
+    func run() -> Outcome {
         signer = SigningStore.loadSigner()
         defer {
             signer?.free()
@@ -117,11 +184,11 @@ private final class ConvertSession {
         return body()
     }
 
-    private func body() -> OpaquePointer? {
+    private func body() -> Outcome {
         var err = [CChar](repeating: 0, count: 512)
         guard let handle = henge_apk_open(apk.path, &err, err.count) else {
             fail("henge_apk_open(\(apk.lastPathComponent)): \(cString(err))")
-            return nil
+            return .finished
         }
         defer { henge_apk_close(handle) }
         pass("henge_apk_open(\(apk.lastPathComponent))")
@@ -129,7 +196,7 @@ private final class ConvertSession {
         var manifest = henge_apk_manifest()
         guard henge_apk_read_manifest(handle, &manifest, &err, err.count) == 0 else {
             fail("henge_apk_read_manifest: \(cString(err))")
-            return nil
+            return .finished
         }
         let package = withUnsafePointer(to: &manifest.package) {
             $0.withMemoryRebound(to: CChar.self, capacity: 256) { String(cString: $0) }
@@ -140,7 +207,7 @@ private final class ConvertSession {
         var n = 0
         guard henge_apk_native_libs(handle, "arm64-v8a", &idx, &n) == 0, n > 0, let idx else {
             fail("no lib/arm64-v8a/*.so in the APK")
-            return nil
+            return .finished
         }
         defer { free(idx) }
 
@@ -152,7 +219,7 @@ private final class ConvertSession {
         if !usePrebuilt { try? fm.removeItem(at: dir) }
         do { try fm.createDirectory(at: dir, withIntermediateDirectories: true) } catch {
             fail("create \(dir.path): \(error.localizedDescription)")
-            return nil
+            return .finished
         }
 
         let mainLib = "lib\(libName(&manifest)).so"
@@ -172,16 +239,16 @@ private final class ConvertSession {
             var elfSize = 0
             guard henge_apk_extract(handle, i, &elf, &elfSize, &err, err.count) == 0, let elf else {
                 fail("extract \(soName): \(cString(err))")
-                return nil
+                return .finished
             }
             defer { free(elf) }
-            guard let macho = convert(elf: elf, size: elfSize, soName: soName, stem: stem) else { return nil }
+            guard let macho = convert(elf: elf, size: elfSize, soName: soName, stem: stem) else { return .finished }
             do { try macho.write(to: out) } catch {
                 fail("write \(out.lastPathComponent): \(error.localizedDescription)")
-                return nil
+                return .finished
             }
         }
-        guard let target = firstSo else { return nil }
+        guard let target = firstSo else { return .finished }
 
         // Android code's log lines show up in the result.
         let box = Unmanaged.passRetained(LogBox(emit: { [weak self] in self?.emit($0) }))
@@ -198,18 +265,28 @@ private final class ConvertSession {
                 emit("      iOS rejected the signature. Libraries in the app container must be signed by your developer")
                 emit("      team: import your .p12 in the Signing tab, then run again.")
             }
-            return nil
+            return .finished
         }
         pass("henge_load(\(target))")
 
         // A NativeActivity library: play the framework and run android_main.
         if henge_dlsym(img, "ANativeActivity_onCreate") != nil {
-            guard let activity = henge_activity_start(img, dir.path, &err, err.count) else {
+            if display {
+                return .needsSurface(LoadedLibrary(image: img, dataPath: dir.path, apkPath: apk.path))
+            }
+            var opts = henge_activity_opts()
+            guard let activity = dir.path.withCString({ data in
+                apk.path.withCString { apkPath in
+                    opts.data_path = data
+                    opts.apk_path = apkPath
+                    return henge_activity_start(img, &opts, &err, err.count)
+                }
+            }) else {
                 fail("henge_activity_start: \(cString(err))")
-                return nil
+                return .finished
             }
             pass("henge_activity_start (ANativeActivity_onCreate returned, android_main is running)")
-            return activity
+            return .running(activity)
         }
 
         // The sample APK's libadd: call into the original Android code.
@@ -220,7 +297,7 @@ private final class ConvertSession {
         } else {
             pass("no `add` export; skipped the sample call")
         }
-        return nil
+        return .finished
     }
 
     private final class LogBox {
