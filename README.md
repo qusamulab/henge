@@ -33,6 +33,8 @@ The host app reads an APK, extracts `lib/arm64-v8a/*.so`, converts it to Mach-O,
 
 A NativeActivity APK keeps running after **Convert & Run** until you tap **Stop**; its log lines appear on the screen. There is no display yet: the window handed to the app is a placeholder.
 
+**Security notes.** Signing keys are your own, never part of this repository (`.gitignore` covers `*.p12` and `*.mobileprovision`; `app/Local.xcconfig` holds your team ID). The imported `.p12` and its password are stored in the device's Keychain (this device only, after first unlock), so anyone who can unlock the phone and run henge can sign with that identity; remove it from the Signing tab when you no longer need it, and delete the `.p12` you exported. henge signs the native code of whatever APK you run with your developer certificate, and that code runs with the app's full privileges inside the iOS sandbox, so only run APKs you trust. The app's `Documents` folder is visible in the Files app (used to import the `.p12`).
+
 Run a library from the terminal without tapping (the APK must be in the app's `Application Support/henge/apks/`):
 
 ```sh
