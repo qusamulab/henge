@@ -19,6 +19,8 @@ struct hr_shim_entry {
 
 HR_SHIM_TABLE(core);
 HR_SHIM_TABLE(dl);
+HR_SHIM_TABLE(posix);
+HR_SHIM_TABLE(android);
 
 /* Returns the shim implementation of the bionic symbol `name`, or NULL. */
 void *henge_shim_lookup(const char *name);

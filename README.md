@@ -18,15 +18,24 @@ No JIT, no debugger, no jailbreak: henge **converts the APK's `.so` files to Mac
 
 ## Status
 
-Milestone **M1** (call a function in a converted `.so`) works on macOS and the iOS Simulator; a real iPhone run is next. See [docs/roadmap.md](docs/roadmap.md).
+Milestone **M1** (call a function in a converted `.so`) works on macOS, the iOS Simulator and a real iPhone. M2 is in progress: a `native_app_glue` NativeActivity runs `android_main` on macOS and on an iPhone, but on-device signing is not implemented yet (see below). See [docs/roadmap.md](docs/roadmap.md).
 
 | | macOS | iOS Simulator | iPhone |
 | --- | --- | --- | --- |
 | ELF → Mach-O conversion (`henge-convert`) | ✅ | ✅ | — |
-| `dlopen` + mini linker (`henge_link`) | ✅ | ✅ | not yet |
-| Calls, globals via GOT, function-pointer tables, `init_array` | ✅ | ✅ | not yet |
+| `dlopen` + mini linker (`henge_link`) | ✅ | ✅ | ✅ |
+| Calls, globals via GOT, function-pointer tables, `init_array` | ✅ | ✅ | ✅ |
+| bionic shim: pthread objects, errno, fd I/O, liblog, ALooper, AConfiguration | ✅ | — | ✅ |
+| NativeActivity host (`android_main` lifecycle with a placeholder window) | ✅ | — | ✅ |
+| APK → `.so` → Mach-O inside the app (`Convert & Run`) | — | — | converts; see note |
 
-Today the conversion runs on the Mac at build time and the host app bundles the result. On-device conversion and signing come in M2.
+The host app can read an APK, extract `lib/arm64-v8a/*.so` and convert it to Mach-O on the device. **Signing is the missing piece**: `henge-convert` only produces ad hoc signatures, and iOS rejects an ad hoc signed dylib loaded from the app container (`code signature invalid`). A dylib signed on the Mac with the same team's developer identity loads fine, so for now `Convert & Run` can be driven with `-usePrebuilt 1` and dylibs signed by `codesign`. Signing with your own identity on the device is the next step.
+
+Run a library from the terminal without tapping (the APK must be in the app's `Application Support/henge/apks/`):
+
+```sh
+xcrun devicectl device process launch --device <UDID> --console <bundle id> -- -convertRun native.apk
+```
 
 <p>
   <img src="docs/images/screenshots/library-empty.png" width="200" alt="Library (empty)">

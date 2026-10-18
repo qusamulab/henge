@@ -43,7 +43,7 @@ APP_DD  := $(B)/app/dd
 APP_OUT := $(APP_DD)/Build/Products/Debug-iphonesimulator/henge.app
 
 .DEFAULT_GOAL := all
-.PHONY: all help samples samples-apk tests test test-layout test-m1 test-patch test-dl test-apk app-dylib app app-run clean
+.PHONY: all help samples samples-apk tests test test-layout test-m1 test-patch test-dl test-shim test-activity test-apk app-dylib app app-run clean
 
 all: $(B)/henge-convert $(B)/henge-apk $(B)/libhenge-runtime.a samples tests ## build the tools, runtime, sample and tests
 
@@ -93,7 +93,7 @@ $(B)/henge-apk: apk/main.c $(B)/libhenge-apk.a $(PUBLIC_HEADERS)
 	$(CC) $(CFLAGS) $< $(B)/libhenge-apk.a -lz -o $@
 
 # ---- samples (Android NDK) ----
-samples: $(B)/samples/libadd.so $(B)/samples/libpatch.so $(B)/samples/libdep.so ## build sample .so files with the NDK
+samples: $(B)/samples/libadd.so $(B)/samples/libpatch.so $(B)/samples/libdep.so $(B)/samples/libshim.so ## build sample .so files with the NDK
 
 $(B)/samples/libadd.so: samples/libadd/add.c
 	@mkdir -p $(@D)
@@ -114,10 +114,20 @@ $(B)/samples/libpatch.so: samples/libpatch/patch.c samples/libpatch/regcheck.S
 	@mkdir -p $(@D)
 	$(NDK_CC) $(NDK_FLAGS) --target=aarch64-linux-android29 -fstack-protector-all -o $@ $^
 
+$(B)/samples/libshim.so: samples/libshim/shim.c
+	@mkdir -p $(@D)
+	$(NDK_CC) $(NDK_FLAGS) -o $@ $< -landroid -llog
+
+# NativeActivity sample: native_app_glue from the NDK.
+GLUE_DIR := $(NDK_ROOT)/sources/android/native_app_glue
+$(B)/samples/libnative.so: samples/libnative/main.c $(GLUE_DIR)/android_native_app_glue.c
+	@mkdir -p $(@D)
+	$(NDK_CC) $(NDK_FLAGS) -I$(GLUE_DIR) -o $@ $^ -landroid -llog
+
 # Sample APK: aapt2-compiled manifest + lib/arm64-v8a/libadd.so (deflate) +
 # assets/hello.txt (stored), so both extraction paths are covered.
 SAMPLE_APK_STAGE := $(B)/samples/apk
-samples-apk: $(B)/samples/sample.apk ## build the sample APK (needs aapt2 + android.jar)
+samples-apk: $(B)/samples/sample.apk $(B)/samples/native.apk ## build the sample APK (needs aapt2 + android.jar)
 
 $(B)/samples/sample.apk: samples/apk/AndroidManifest.xml samples/apk/hello.txt $(B)/samples/libadd.so
 	@test -x "$(AAPT2)" || { echo "error: aapt2 not found under $(ANDROID_HOME)/build-tools (set ANDROID_HOME or AAPT2)" >&2; exit 1; }
@@ -130,8 +140,20 @@ $(B)/samples/sample.apk: samples/apk/AndroidManifest.xml samples/apk/hello.txt $
 	cd $(SAMPLE_APK_STAGE) && zip -q -X -9 $(abspath $@.tmp) lib/arm64-v8a/libadd.so && zip -q -X -0 $(abspath $@.tmp) assets/hello.txt
 	mv $@.tmp $@
 
+# NativeActivity sample APK (libnative.so), for running on the device.
+NATIVE_APK_STAGE := $(B)/samples/apk-native
+$(B)/samples/native.apk: samples/apk-native/AndroidManifest.xml $(B)/samples/libnative.so
+	@test -x "$(AAPT2)" || { echo "error: aapt2 not found under $(ANDROID_HOME)/build-tools (set ANDROID_HOME or AAPT2)" >&2; exit 1; }
+	@test -f "$(ANDROID_JAR)" || { echo "error: android.jar not found under $(ANDROID_HOME)/platforms (set ANDROID_HOME or ANDROID_JAR)" >&2; exit 1; }
+	rm -rf $(NATIVE_APK_STAGE) $@.tmp
+	mkdir -p $(NATIVE_APK_STAGE)/lib/arm64-v8a
+	"$(AAPT2)" link -I "$(ANDROID_JAR)" --manifest samples/apk-native/AndroidManifest.xml -o $@.tmp
+	cp $(B)/samples/libnative.so $(NATIVE_APK_STAGE)/lib/arm64-v8a/
+	cd $(NATIVE_APK_STAGE) && zip -q -X -9 $(abspath $@.tmp) lib/arm64-v8a/libnative.so
+	mv $@.tmp $@
+
 # ---- tests (macOS) ----
-tests: $(B)/tests/test_m1 $(B)/tests/test_layout $(B)/tests/test_patch $(B)/tests/test_dl $(B)/tests/test_apk
+tests: $(B)/tests/test_m1 $(B)/tests/test_layout $(B)/tests/test_patch $(B)/tests/test_dl $(B)/tests/test_shim $(B)/tests/test_activity $(B)/tests/test_apk
 
 $(B)/tests/test_m1: tests/test_m1.c $(B)/libhenge-runtime.a $(PUBLIC_HEADERS)
 	@mkdir -p $(@D)
@@ -142,6 +164,14 @@ $(B)/tests/test_patch: tests/test_patch.c $(B)/libhenge-runtime.a $(PUBLIC_HEADE
 	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a -o $@
 
 $(B)/tests/test_dl: tests/test_dl.c $(B)/libhenge-runtime.a $(PUBLIC_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a -o $@
+
+$(B)/tests/test_shim: tests/test_shim.c $(B)/libhenge-runtime.a $(PUBLIC_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a -o $@
+
+$(B)/tests/test_activity: tests/test_activity.c $(B)/libhenge-runtime.a $(PUBLIC_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a -o $@
 
@@ -183,6 +213,24 @@ $(B)/tests/dl: $(B)/samples/libdep.so $(B)/samples/libbase.so $(B)/henge-convert
 test-dl: $(B)/tests/test_dl $(B)/tests/dl ## DT_NEEDED loading, APS2 and libdl on macOS
 	$(B)/tests/test_dl $(B)/tests/dl
 
+.PHONY: $(B)/tests/libshim.dylib
+$(B)/tests/libshim.dylib: $(B)/samples/libshim.so $(B)/henge-convert
+	@mkdir -p $(@D)
+	$(B)/henge-convert --platform macos --sign $(CONVERT_FLAGS) -o $@ $<
+	codesign -v $@
+
+test-shim: $(B)/tests/test_shim $(B)/tests/libshim.dylib ## pthread / errno / fd / ALooper / AConfiguration shims on macOS
+	$(B)/tests/test_shim $(B)/tests/libshim.dylib
+
+.PHONY: $(B)/tests/libnative.dylib
+$(B)/tests/libnative.dylib: $(B)/samples/libnative.so $(B)/henge-convert
+	@mkdir -p $(@D)
+	$(B)/henge-convert --platform macos --sign $(CONVERT_FLAGS) -o $@ $<
+	codesign -v $@
+
+test-activity: $(B)/tests/test_activity $(B)/tests/libnative.dylib ## run a native_app_glue NativeActivity through the host on macOS
+	$(B)/tests/test_activity $(B)/tests/libnative.dylib
+
 test-layout: $(B)/tests/test_layout $(B)/tests/libadd.dylib ## check the converted Mach-O layout
 	$(B)/tests/test_layout $(B)/samples/libadd.so $(B)/tests/libadd.dylib
 
@@ -193,7 +241,7 @@ test-apk: $(B)/tests/test_apk $(B)/samples/sample.apk $(B)/henge-apk ## read the
 	$(B)/tests/test_apk $(B)/samples/sample.apk $(B)/samples/libadd.so samples/apk/hello.txt
 	$(B)/henge-apk info $(B)/samples/sample.apk
 
-test: test-layout test-m1 test-patch test-dl test-apk ## run all macOS tests
+test: test-layout test-m1 test-patch test-dl test-shim test-activity test-apk ## run all macOS tests
 	@echo "ALL TESTS PASSED"
 
 # ---- iOS host app (app/) ----

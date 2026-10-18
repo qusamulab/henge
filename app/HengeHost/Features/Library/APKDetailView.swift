@@ -2,6 +2,7 @@ import SwiftUI
 
 struct APKDetailView: View {
     let apk: APKFile
+    @EnvironmentObject private var converter: ConvertRunner
 
     var body: some View {
         List {
@@ -33,24 +34,30 @@ struct APKDetailView: View {
             }
 
             Section {
-                Button {} label: {
-                    VStack(spacing: 2) {
-                        Label("Convert & Run", systemImage: "play.fill")
-                        Text("Coming in M2")
-                            .font(.caption)
-                    }
-                    .frame(maxWidth: .infinity)
+                Button {
+                    converter.run(apk: apk.url)
+                } label: {
+                    Label(converter.state == .running ? "Running\u{2026}" : "Convert & Run", systemImage: "play.fill")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(true)
+                .disabled(converter.state == .running)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             } footer: {
-                Text("M2 will extract lib/arm64-v8a/*.so from the APK, convert and sign it, then launch it.")
+                Text("Extracts lib/arm64-v8a/*.so from the APK, converts and signs it, then loads it.")
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
                     .padding(.top, 4)
+            }
+
+            if converter.state != .idle {
+                Section("Result") {
+                    Text(converter.logText)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                }
             }
         }
         .navigationTitle(apk.name)

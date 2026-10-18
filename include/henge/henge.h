@@ -99,6 +99,21 @@ henge_image *henge_load(const char *name, char *err, size_t errlen);
 /* Looks up an exported symbol via DT_GNU_HASH (or DT_HASH). */
 void *henge_dlsym(henge_image *image, const char *name);
 
+/* ---- NativeActivity host (runtime/activity.c) ---- */
+
+typedef struct henge_activity henge_activity;
+
+/* Runs an Android NativeActivity library (one exporting ANativeActivity_onCreate, e.g. built with
+ * native_app_glue): creates a stand-in ANativeActivity, calls onCreate, then onStart / onResume,
+ * hands it a placeholder window and input queue, and gives it focus. native_app_glue's onCreate
+ * returns once the app thread (android_main) is running. data_path becomes the internal, external
+ * and OBB data paths. Returns NULL on failure (see err). */
+henge_activity *henge_activity_start(henge_image *lib, const char *data_path, char *err, size_t errlen);
+
+/* Drives the activity down (focus lost, window / queue destroyed, onPause, onStop, onDestroy) and
+ * frees it. native_app_glue's onDestroy waits for android_main to return. */
+void henge_activity_stop(henge_activity *activity);
+
 /* Nonzero if the bionic shim implements `name` (for compatibility reports). */
 int henge_shim_provides(const char *name);
 
