@@ -7,6 +7,7 @@ CFLAGS  := -std=c11 -Wall -Wextra -O2 -Iinclude
 
 NDK_ROOT  ?= /opt/homebrew/share/android-ndk
 NDK_CC    ?= $(NDK_ROOT)/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang
+NDK_CXX   ?= $(NDK_ROOT)/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++
 NDK_FLAGS := --target=aarch64-linux-android28 -fPIC -shared -O2 -Wl,-z,max-page-size=16384
 
 # Android SDK, for aapt2 + android.jar (sample APK). Newest installed versions by default.
@@ -43,7 +44,7 @@ APP_DD  := $(B)/app/dd
 APP_OUT := $(APP_DD)/Build/Products/Debug-iphonesimulator/henge.app
 
 .DEFAULT_GOAL := all
-.PHONY: all help samples samples-apk tests test test-layout test-m1 test-patch test-dl test-shim test-activity test-sign test-apk app-dylib app app-run clean
+.PHONY: all help samples samples-apk tests test test-layout test-m1 test-patch test-dl test-shim test-cxx test-activity test-sign test-apk app-dylib app app-run clean
 
 all: $(B)/henge-convert $(B)/henge-apk $(B)/libhenge-runtime.a samples tests ## build the tools, runtime, sample and tests
 
@@ -124,6 +125,11 @@ $(B)/samples/libnative.so: samples/libnative/main.c $(GLUE_DIR)/android_native_a
 	@mkdir -p $(@D)
 	$(NDK_CC) $(NDK_FLAGS) -I$(GLUE_DIR) -o $@ $^ -landroid -llog
 
+# C++ with libc++ linked statically into the library.
+$(B)/samples/libcxx.so: samples/libcxx/cxx.cpp
+	@mkdir -p $(@D)
+	$(NDK_CXX) $(NDK_FLAGS) -std=c++17 -static-libstdc++ -o $@ $<
+
 $(B)/samples/libgame.so: samples/libgame/main.c $(GLUE_DIR)/android_native_app_glue.c
 	@mkdir -p $(@D)
 	$(NDK_CC) $(NDK_FLAGS) -I$(GLUE_DIR) -o $@ $^ -landroid -llog -lEGL -lGLESv2 -laaudio -lm
@@ -170,7 +176,7 @@ $(B)/samples/game.apk: samples/apk-game/AndroidManifest.xml samples/apk-game/ass
 	mv $@.tmp $@
 
 # ---- tests (macOS) ----
-tests: $(B)/tests/test_m1 $(B)/tests/test_layout $(B)/tests/test_patch $(B)/tests/test_dl $(B)/tests/test_shim $(B)/tests/test_activity $(B)/tests/test_apk
+tests: $(B)/tests/test_cxx $(B)/tests/test_m1 $(B)/tests/test_layout $(B)/tests/test_patch $(B)/tests/test_dl $(B)/tests/test_shim $(B)/tests/test_activity $(B)/tests/test_apk
 
 $(B)/tests/test_m1: tests/test_m1.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.a $(PUBLIC_HEADERS)
 	@mkdir -p $(@D)
@@ -189,6 +195,10 @@ $(B)/tests/test_shim: tests/test_shim.c $(B)/libhenge-runtime.a $(B)/libhenge-ap
 	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -o $@
 
 $(B)/tests/test_activity: tests/test_activity.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.a $(PUBLIC_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -o $@
+
+$(B)/tests/test_cxx: tests/test_cxx.c $(B)/libhenge-runtime.a $(B)/libhenge-apk.a $(PUBLIC_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $< $(B)/libhenge-runtime.a $(B)/libhenge-apk.a -lz -o $@
 
@@ -259,6 +269,15 @@ test-sign: $(B)/henge-convert $(B)/samples/libadd.so ## sign with a keychain ide
 	  echo "PASS: test_sign"; \
 	else echo "SKIP: test_sign (no '$(SIGN_IDENTITY)' identity in the keychain)"; fi
 
+.PHONY: $(B)/tests/libcxx.dylib
+$(B)/tests/libcxx.dylib: $(B)/samples/libcxx.so $(B)/henge-convert
+	@mkdir -p $(@D)
+	$(B)/henge-convert --platform macos --sign $(CONVERT_FLAGS) -o $@ $<
+	codesign -v $@
+
+test-cxx: $(B)/tests/test_cxx $(B)/tests/libcxx.dylib ## C++ (libc++, exceptions, RTTI, threads) on macOS
+	$(B)/tests/test_cxx $(B)/tests/libcxx.dylib
+
 test-layout: $(B)/tests/test_layout $(B)/tests/libadd.dylib ## check the converted Mach-O layout
 	$(B)/tests/test_layout $(B)/samples/libadd.so $(B)/tests/libadd.dylib
 
@@ -269,7 +288,7 @@ test-apk: $(B)/tests/test_apk $(B)/samples/sample.apk $(B)/henge-apk ## read the
 	$(B)/tests/test_apk $(B)/samples/sample.apk $(B)/samples/libadd.so samples/apk/hello.txt
 	$(B)/henge-apk info $(B)/samples/sample.apk
 
-test: test-layout test-m1 test-patch test-dl test-shim test-activity test-sign test-apk ## run all macOS tests
+test: test-layout test-m1 test-patch test-dl test-shim test-cxx test-activity test-sign test-apk ## run all macOS tests
 	@echo "ALL TESTS PASSED"
 
 # ---- iOS host app (app/) ----

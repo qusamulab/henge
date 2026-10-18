@@ -291,6 +291,11 @@ static int shim_pthread_equal(uint64_t a, uint64_t b)
 /* Code reads errno through __errno(); the shims below store Linux values here. */
 static _Thread_local int t_errno;
 
+void hr_set_errno(int linux_errno)
+{
+    t_errno = linux_errno;
+}
+
 static int *shim_errno(void)
 {
     return &t_errno;

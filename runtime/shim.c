@@ -80,6 +80,7 @@ static const struct {
     {hr_shim_android, &hr_shim_android_count},
     {hr_shim_assets, &hr_shim_assets_count},
     {hr_shim_libc, &hr_shim_libc_count},
+    {hr_shim_cxx, &hr_shim_cxx_count},
 };
 
 /* Tables added at run time by the host (henge_shim_register). */
