@@ -89,11 +89,22 @@ static struct class_entry *index_find(const char *name, int create)
 int vm_add_dex(VM *vm, const uint8_t *data, size_t size, char *err, size_t errlen)
 {
     Dex *dex = calloc(1, sizeof *dex);
+    if (!dex) {
+        snprintf(err, errlen, "out of memory");
+        return -1;
+    }
     if (dex_open(dex, data, size, err, errlen) != 0) {
         free(dex);
         return -1;
     }
-    vm->dexes = realloc(vm->dexes, (vm->ndex + 1) * sizeof *vm->dexes);
+    Dex **dexes = realloc(vm->dexes, (vm->ndex + 1) * sizeof *vm->dexes);
+    if (!dexes) {
+        dex_close(dex);
+        free(dex);
+        snprintf(err, errlen, "out of memory");
+        return -1;
+    }
+    vm->dexes = dexes;
     vm->dexes[vm->ndex++] = dex;
     for (uint32_t i = 0; i < dex->nclasses; i++) {
         const uint8_t *def = dex->class_defs + i * 32;
@@ -525,6 +536,7 @@ static Class *load_class(VM *vm, const char *name, Dex *dex, const uint8_t *def)
             c->interfaces[i] = vm_find_class(vm, dex_type(dex, rd16(tl + 4 + i * 2)));
             if (!c->interfaces[i]) {
                 fprintf(stderr, "henge-vm: %s: missing interface %s\n", name, dex_type(dex, rd16(tl + 4 + i * 2)));
+                free(c->interfaces);
                 free(c);
                 return NULL;
             }
@@ -781,6 +793,8 @@ static Thread *new_thread(VM *vm)
 VM *vm_create(void)
 {
     VM *vm = calloc(1, sizeof *vm);
+    if (!vm)
+        return NULL;
     g_vm = vm;
     pthread_mutex_init(&vm->lock, NULL);
     vm->gc_threshold = 16u << 20;
@@ -793,12 +807,14 @@ VM *vm_create(void)
     char err[256];
     if (vm_add_dex(vm, core, size, err, sizeof err) != 0) {
         fprintf(stderr, "henge-vm: core dex: %s\n", err);
+        vm_destroy(vm);
         return NULL;
     }
     size_t asize;
     const uint8_t *adex = vm_android_dex(&asize);
     if (adex && vm_add_dex(vm, adex, asize, err, sizeof err) != 0) {
         fprintf(stderr, "henge-vm: android dex: %s\n", err);
+        vm_destroy(vm);
         return NULL;
     }
     vm->cls_object = vm_find_class(vm, "Ljava/lang/Object;");
@@ -807,6 +823,7 @@ VM *vm_create(void)
     vm->cls_throwable = vm_find_class(vm, "Ljava/lang/Throwable;");
     if (!vm->cls_object || !vm->cls_string || !vm->cls_class) {
         fprintf(stderr, "henge-vm: core classes are missing\n");
+        vm_destroy(vm);
         return NULL;
     }
     return vm;
@@ -829,10 +846,11 @@ uint64_t vm_call_static(Thread *t, const char *cls, const char *name, const char
     return vm_invoke(t, m, args);
 }
 
-/* Frees the heap and forgets every class, so another VM can be created in this process. Classes, dex
- * tables and interned strings are leaked (a few hundred KB per run). */
+/* Release everything owned by the VM. DEX input buffers remain owned by the caller. */
 void vm_destroy(VM *vm)
 {
+    if (!vm)
+        return;
     for (uint32_t r = 1; r < vm->table_size; r++)
         if (((uintptr_t)vm->table[r] & 1) == 0)
             free(vm->table[r]);
@@ -843,6 +861,36 @@ void vm_destroy(VM *vm)
         free(t);
         t = n;
     }
+    for (size_t i = 0; i < vm->nclasses; i++) {
+        Class *c = vm->classes[i];
+        /* Array classes borrow Object's vtable. Ordinary classes own theirs. */
+        if (!c->array_kind)
+            free(c->vtable);
+        free(c->interfaces);
+        free(c->fields);
+        free(c->methods);
+        free(c->statics);
+        free(c->ref_offsets);
+        free(c);
+    }
+    free(vm->classes);
+    for (size_t i = 0; i < vm->ndex; i++) {
+        dex_close(vm->dexes[i]);
+        free(vm->dexes[i]);
+    }
+    free(vm->dexes);
+    for (size_t i = 0; i < vm->cap_interned; i++)
+        free(vm->interned[i]);
+    free(vm->interned);
+    struct natives *nt = vm->natives;
+    if (nt) {
+        for (size_t i = 0; i < nt->n; i++)
+            free(nt->e[i].key);
+        free(nt->e);
+        free(nt);
+    }
+    free(vm->pins);
+    free(vm->string_pool);
     free(g_index.e);
     memset(&g_index, 0, sizeof g_index);
     memset(g_mcache, 0, sizeof g_mcache);

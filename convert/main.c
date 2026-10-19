@@ -29,9 +29,10 @@ static uint8_t *read_file(const char *path, size_t *size) {
             if (!nb) { free(buf); fclose(f); return NULL; }
             buf = nb;
         }
-        size_t n = fread(buf + len, 1, cap - len, f);
+        size_t available = cap - len;
+        size_t n = fread(buf + len, 1, available, f);
         len += n;
-        if (n == 0) break;
+        if (n < available) break;
     }
     int bad = ferror(f);
     fclose(f);
@@ -68,7 +69,13 @@ static int check(int n, char **paths) {
     struct henge_convert_result *r = calloc((size_t)n, sizeof *r);
     char (*errs)[512] = calloc((size_t)n, sizeof *errs);
     int *ok = calloc((size_t)n, sizeof *ok), rc = 0;
-    if (!r || !errs || !ok) { fprintf(stderr, "henge-convert: out of memory\n"); return 1; }
+    if (!r || !errs || !ok) {
+        fprintf(stderr, "henge-convert: out of memory\n");
+        free(r);
+        free(errs);
+        free(ok);
+        return 1;
+    }
     for (int i = 0; i < n; i++) {
         size_t size;
         uint8_t *elf = read_file(paths[i], &size);

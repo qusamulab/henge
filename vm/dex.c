@@ -80,9 +80,23 @@ int dex_open(Dex *dex, const uint8_t *data, size_t size, char *err, size_t errle
     dex->res_strings = calloc(dex->nstrings ? dex->nstrings : 1, sizeof *dex->res_strings);
     if (!dex->strings || !dex->classes_by_type || !dex->res_methods || !dex->msigs || !dex->res_fields || !dex->res_strings) {
         snprintf(err, errlen, "out of memory");
+        dex_close(dex);
         return -1;
     }
     return 0;
+}
+
+void dex_close(Dex *dex)
+{
+    if (!dex)
+        return;
+    free(dex->strings);
+    free(dex->classes_by_type);
+    free(dex->res_methods);
+    free(dex->msigs);
+    free(dex->res_fields);
+    free(dex->res_strings);
+    memset(dex, 0, sizeof *dex);
 }
 
 const char *dex_string(Dex *dex, uint32_t idx)

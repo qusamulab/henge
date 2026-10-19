@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 . ../../scripts/java-env.sh
 K=build/kotlin
 rm -rf $K && mkdir -p $K/classes $K/dex
-kotlinc kotlin/KtTest.kt $KOTLINC_FLAGS -cp "$KOTLIN_STDLIB" -d $K/classes 2>&1 | grep -v "^warning" || true
+kotlinc kotlin/KtTest.kt $KOTLINC_FLAGS -cp "$KOTLIN_STDLIB" -d $K/classes
 cat > $K/keep.pro <<'PRO'
 -keep class kt.KtTestKt { public static int run(); }
 -dontobfuscate
@@ -16,6 +16,6 @@ PRO
 jar cf $K/core.jar -C ../core/build/stubclasses .
 jar cf $K/app.jar -C $K/classes .
 java -cp "$D8JAR" com.android.tools.r8.R8 --release --min-api 24 --lib $K/core.jar --pg-conf $K/keep.pro \
-    --output $K/dex $K/app.jar "$KOTLIN_STDLIB" 2>&1 | grep -v "^Warning" | head -30 || true
+    --output $K/dex $K/app.jar "$KOTLIN_STDLIB"
 cp $K/dex/classes.dex kttest.dex
 echo "kttest.dex: $(wc -c < kttest.dex) bytes"

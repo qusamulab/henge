@@ -1,5 +1,6 @@
 /* Private interfaces shared by the APK reader's translation units (not installed).
  *
+ *   apk.c   archive lifetime, enumeration and indexed name lookup
  *   zip.c   ZIP central directory, entry extraction (stored / deflate)
  *   axml.c  binary XML (AndroidManifest.xml) parsing
  */
@@ -23,11 +24,13 @@ struct henge_apk {
     size_t size;
     int mapped; /* data is our mmap */
     struct apk_entry *entries;
+    struct apk_entry **by_name; /* sorted pointers; entries stay in archive order */
     size_t count;
 };
 
 /* Formats a message into err (if non-NULL) and returns -1. */
 int ha_fail(char *err, size_t errlen, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
+int ha_read_central_directory(henge_apk *apk, char *err, size_t errlen);
 
 static inline uint16_t ha_u16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
 static inline uint32_t ha_u32(const uint8_t *p) {
