@@ -60,7 +60,7 @@ struct APKDetailView: View {
                 }
             } footer: {
                 Text(converter.state == .active
-                     ? "The app's android_main is running. There is no display yet, so its log lines are shown below."
+                     ? "The app is running. Tap Stop to end the session."
                      : "Extracts lib/arm64-v8a/*.so from the APK, converts and signs it, then loads and starts it.")
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)

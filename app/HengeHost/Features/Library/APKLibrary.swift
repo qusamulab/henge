@@ -30,36 +30,45 @@ final class APKLibrary: ObservableObject {
     func reload() {
         try? fm.createDirectory(at: directory, withIntermediateDirectories: true)
         let keys: [URLResourceKey] = [.fileSizeKey, .creationDateKey, .isRegularFileKey]
+        let keySet = Set(keys)
         let urls = (try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: keys,
                                                 options: [.skipsHiddenFiles])) ?? []
         apks = urls.compactMap { url in
-            guard let v = try? url.resourceValues(forKeys: Set(keys)), v.isRegularFile == true else { return nil }
+            guard let v = try? url.resourceValues(forKeys: keySet), v.isRegularFile == true else { return nil }
             return APKFile(url: url, size: Int64(v.fileSize ?? 0), dateAdded: v.creationDate ?? .distantPast)
         }
         .sorted { $0.dateAdded > $1.dateAdded }
     }
 
-    /// Copies a user-picked file (security-scoped URL from .fileImporter) into the library.
-    func importFile(from source: URL) {
-        let scoped = source.startAccessingSecurityScopedResource()
-        defer { if scoped { source.stopAccessingSecurityScopedResource() } }
-        do {
-            try fm.createDirectory(at: directory, withIntermediateDirectories: true)
-            let dest = uniqueDestination(for: source.lastPathComponent)
-            try fm.copyItem(at: source, to: dest)
-            log.log("imported \(dest.lastPathComponent, privacy: .public)")
-            reload()
-        } catch {
-            lastError = "Could not import \(source.lastPathComponent): \(error.localizedDescription)"
+    /// Copies the selected files, then refreshes the directory once for the whole batch.
+    func importFiles(from sources: [URL]) {
+        var errors: [String] = []
+        for source in sources {
+            let scoped = source.startAccessingSecurityScopedResource()
+            defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+            do {
+                try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+                let dest = uniqueDestination(for: source.lastPathComponent)
+                try fm.copyItem(at: source, to: dest)
+                log.log("imported \(dest.lastPathComponent, privacy: .public)")
+            } catch {
+                errors.append("Could not import \(source.lastPathComponent): \(error.localizedDescription)")
+            }
         }
+        lastError = errors.isEmpty ? nil : errors.joined(separator: "\n")
+        reload()
     }
 
-    func delete(_ apk: APKFile) {
-        do {
-            try fm.removeItem(at: apk.url)
-        } catch {
-            lastError = "Could not delete \(apk.fileName): \(error.localizedDescription)"
+    func delete(_ files: [APKFile]) {
+        var errors: [String] = []
+        for apk in files {
+            do {
+                try fm.removeItem(at: apk.url)
+            } catch {
+                errors.append("Could not delete \(apk.fileName): \(error.localizedDescription)")
+            }
         }
+        lastError = errors.isEmpty ? nil : errors.joined(separator: "\n")
         reload()
     }
 

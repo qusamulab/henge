@@ -31,7 +31,7 @@ struct LibraryView: View {
                             }
                         }
                         .onDelete { offsets in
-                            offsets.map { library.apks[$0] }.forEach(library.delete)
+                            library.delete(offsets.map { library.apks[$0] })
                         }
                     }
                 }
@@ -52,11 +52,11 @@ struct LibraryView: View {
             .fileImporter(isPresented: $importing, allowedContentTypes: [.apk],
                           allowsMultipleSelection: true) { result in
                 switch result {
-                case .success(let urls): urls.forEach(library.importFile)
+                case .success(let urls): library.importFiles(from: urls)
                 case .failure(let error): library.lastError = error.localizedDescription
                 }
             }
-            .alert("Import Failed", isPresented: Binding(
+            .alert("Library Error", isPresented: Binding(
                 get: { library.lastError != nil },
                 set: { if !$0 { library.lastError = nil } }
             )) {

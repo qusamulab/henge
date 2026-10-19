@@ -36,6 +36,7 @@ struct Dex {
 };
 
 int dex_open(Dex *dex, const uint8_t *data, size_t size, char *err, size_t errlen);
+void dex_close(Dex *dex); /* releases caches, never the borrowed input buffer */
 const char *dex_string(Dex *dex, uint32_t idx); /* MUTF-8 */
 const char *dex_type(Dex *dex, uint32_t type_idx);
 uint32_t dex_uleb(const uint8_t **p);
@@ -141,7 +142,7 @@ struct VM {
     size_t ndex;
     Object **table;           /* handle table */
     uint32_t table_size, table_cap, free_head;
-    uint32_t live_bytes, gc_threshold;
+    size_t live_bytes, gc_threshold;
     int gc_wanted;
     Class **classes;          /* loaded classes */
     size_t nclasses, cap_classes;

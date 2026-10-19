@@ -1,14 +1,7 @@
 /* ZIP container: central directory parsing and entry extraction (stored / deflate).
  * Supports ZIP64 end-of-central-directory records and extra fields. */
-#include <errno.h>
-#include <fcntl.h>
-#include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #include <zlib.h>
 
@@ -23,16 +16,6 @@
 #define EOCD_SIZE 22
 #define CENTRAL_SIZE 46
 #define LOCAL_SIZE 30
-
-int ha_fail(char *err, size_t errlen, const char *fmt, ...) {
-    if (err && errlen) {
-        va_list ap;
-        va_start(ap, fmt);
-        vsnprintf(err, errlen, fmt, ap);
-        va_end(ap);
-    }
-    return -1;
-}
 
 /* ---- end of central directory ---- */
 
@@ -93,7 +76,7 @@ static int apply_zip64_extra(struct apk_entry *e, const uint8_t *x, size_t xlen,
     return (need_u || need_c || need_o) ? -1 : 0;
 }
 
-static int read_central_directory(henge_apk *a, char *err, size_t errlen) {
+int ha_read_central_directory(henge_apk *a, char *err, size_t errlen) {
     uint64_t count, cd_off, cd_size;
     if (read_cd_bounds(a, &count, &cd_off, &cd_size, err, errlen) != 0) return -1;
     if (cd_off > a->size || cd_size > a->size - cd_off)
@@ -127,106 +110,6 @@ static int read_central_directory(henge_apk *a, char *err, size_t errlen) {
         e->name[nlen] = '\0';
         a->count++;
         p += CENTRAL_SIZE + nlen + xlen + clen;
-    }
-    return 0;
-}
-
-/* ---- open / close ---- */
-
-static henge_apk *open_common(henge_apk *a, char *err, size_t errlen) {
-    if (read_central_directory(a, err, errlen) != 0) {
-        henge_apk_close(a);
-        return NULL;
-    }
-    return a;
-}
-
-henge_apk *henge_apk_open_mem(const uint8_t *data, size_t size, char *err, size_t errlen) {
-    henge_apk *a = calloc(1, sizeof *a);
-    if (!a) {
-        ha_fail(err, errlen, "out of memory");
-        return NULL;
-    }
-    a->data = data;
-    a->size = size;
-    return open_common(a, err, errlen);
-}
-
-henge_apk *henge_apk_open(const char *path, char *err, size_t errlen) {
-    int fd = open(path, O_RDONLY | O_CLOEXEC);
-    if (fd < 0) {
-        ha_fail(err, errlen, "%s: cannot open: %s", path, strerror(errno));
-        return NULL;
-    }
-    struct stat st;
-    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size <= 0) {
-        close(fd);
-        ha_fail(err, errlen, "%s: not a non-empty regular file", path);
-        return NULL;
-    }
-    void *m = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    close(fd);
-    if (m == MAP_FAILED) {
-        ha_fail(err, errlen, "%s: mmap failed: %s", path, strerror(errno));
-        return NULL;
-    }
-    henge_apk *a = calloc(1, sizeof *a);
-    if (!a) {
-        munmap(m, (size_t)st.st_size);
-        ha_fail(err, errlen, "out of memory");
-        return NULL;
-    }
-    a->data = m;
-    a->size = (size_t)st.st_size;
-    a->mapped = 1;
-    return open_common(a, err, errlen);
-}
-
-void henge_apk_close(henge_apk *a) {
-    if (!a) return;
-    for (size_t i = 0; i < a->count; i++) free(a->entries[i].name);
-    free(a->entries);
-    if (a->mapped) munmap((void *)a->data, a->size);
-    free(a);
-}
-
-/* ---- lookup ---- */
-
-size_t henge_apk_count(const henge_apk *a) { return a ? a->count : 0; }
-
-const char *henge_apk_name(const henge_apk *a, size_t i) { return a && i < a->count ? a->entries[i].name : NULL; }
-
-long henge_apk_find(const henge_apk *a, const char *name) {
-    if (!a || !name) return -1;
-    for (size_t i = 0; i < a->count; i++)
-        if (strcmp(a->entries[i].name, name) == 0) return (long)i;
-    return -1;
-}
-
-int henge_apk_native_libs(const henge_apk *a, const char *abi, size_t **idx, size_t *n) {
-    *idx = NULL;
-    *n = 0;
-    char prefix[128];
-    if (!a || !abi || snprintf(prefix, sizeof prefix, "lib/%s/", abi) >= (int)sizeof prefix) return 0;
-    size_t plen = strlen(prefix), cap = 0;
-    for (size_t i = 0; i < a->count; i++) {
-        const char *name = a->entries[i].name;
-        size_t len = strlen(name);
-        if (strncmp(name, prefix, plen) != 0 || strchr(name + plen, '/') || len < plen + 4 ||
-            strcmp(name + len - 3, ".so") != 0)
-            continue;
-        if (*n == cap) {
-            cap = cap ? cap * 2 : 8;
-            size_t *ni = realloc(*idx, cap * sizeof *ni);
-            if (!ni) {
-                free(*idx);
-                *idx = NULL;
-                *n = 0;
-                return -1;
-            }
-            *idx = ni;
-        }
-        (*idx)[(*n)++] = i;
     }
     return 0;
 }
