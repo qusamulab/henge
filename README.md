@@ -40,6 +40,8 @@ A NativeActivity APK opens full screen after **Convert & Run**: EGL is implement
 
 **Security notes.** Signing keys are your own, never part of this repository (`.gitignore` covers `*.p12` and `*.mobileprovision`; `app/Local.xcconfig` holds your team ID). The imported `.p12` and its password are stored in the device's Keychain (this device only, after first unlock), so anyone who can unlock the phone and run henge can sign with that identity; remove it from the Signing tab when you no longer need it, and delete the `.p12` you exported. henge signs the native code of whatever APK you run with your developer certificate, and that code runs with the app's full privileges inside the iOS sandbox, so only run APKs you trust. The app's `Documents` folder is visible in the Files app (used to import the `.p12`).
 
+Platform probes for V1 / V2 / V6 (`TPIDR_EL0`, x18, memory budget) print with `-probe YES` at launch.
+
 Run a library from the terminal without tapping (the APK must be in the app's `Application Support/henge/apks/`):
 
 ```sh

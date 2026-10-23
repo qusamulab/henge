@@ -137,7 +137,13 @@ int hc_scan_code(const struct elf_info *e, struct scan_result *out, char *err, s
             } else if (uses_x18(w)) {
                 if (!out->x18_count) out->first_x18 = va;
                 out->x18_count++;
-                if (w == INSN_SCS_PUSH || w == INSN_SCS_POP) out->scs = 1;
+                if (w == INSN_SCS_PUSH || w == INSN_SCS_POP) {
+                    /* x18 is zeroed by XNU on every context switch and signal (V2, iPhone 16 / iOS),
+                     * so a shadow stack kept there would be lost mid-call. */
+                    hc_scan_free(out);
+                    return hc_fail(err, errlen, "Shadow Call Stack at 0x%llx: Darwin does not preserve x18",
+                                   (unsigned long long)va);
+                }
             }
             if (kind && add_patch(out, &cap, va, kind, reg) != 0) {
                 hc_scan_free(out);
