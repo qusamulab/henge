@@ -43,6 +43,7 @@ final class APKLibrary: ObservableObject {
             }
             return errors
         }.value
+        lastError = nil
         reload()
         if !errors.isEmpty { lastError = "Could not import:\n" + errors.joined(separator: "\n") }
         log.log("import finished: \(sources.count - errors.count) of \(sources.count) files")
@@ -57,6 +58,7 @@ final class APKLibrary: ObservableObject {
                 errors.append("\(apk.fileName): \(error.localizedDescription)")
             }
         }
+        lastError = nil
         reload()
         if !errors.isEmpty { lastError = "Could not delete:\n" + errors.joined(separator: "\n") }
     }

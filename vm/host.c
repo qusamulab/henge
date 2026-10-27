@@ -5,6 +5,7 @@
 #include "henge/apk.h"
 
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,8 +24,8 @@ struct vm_host {
     pthread_cond_t started;
     int start_done, start_ok;
     char start_err[256];
-    volatile int stop;
-    volatile int running;
+    atomic_int stop;
+    atomic_int running;
     struct touch queue[TOUCH_QUEUE];
     int qhead, qtail;
 };
@@ -182,21 +183,24 @@ static void *host_main(void *arg)
 {
     vm_host *h = arg;
     char err[512];
+    VM *vm = NULL;
+    uint8_t *dex_data[31] = {0};
+    size_t ndex = 0;
+    struct egl egl = {0};
     g_host = h;
     vm_android_log = android_log;
     vm_asset_reader = asset_reader;
 
     g_apk = henge_apk_open(h->opts.apk_path, err, sizeof err);
-    if (!g_apk) { start_result(h, 0, err); return NULL; }
+    if (!g_apk) { start_result(h, 0, err); goto cleanup; }
     struct henge_apk_manifest man;
-    if (henge_apk_read_manifest(g_apk, &man, err, sizeof err) != 0) { start_result(h, 0, err); return NULL; }
-    if (!man.launcher_activity[0]) { start_result(h, 0, "the manifest has no MAIN / LAUNCHER activity"); return NULL; }
+    if (henge_apk_read_manifest(g_apk, &man, err, sizeof err) != 0) { start_result(h, 0, err); goto cleanup; }
+    if (!man.launcher_activity[0]) { start_result(h, 0, "the manifest has no MAIN / LAUNCHER activity"); goto cleanup; }
 
-    VM *vm = vm_create();
-    if (!vm) { start_result(h, 0, "could not create the VM"); return NULL; }
+    vm = vm_create();
+    if (!vm) { start_result(h, 0, "could not create the VM"); goto cleanup; }
     Thread *t = vm_main_thread(vm);
 
-    int ndex = 0;
     for (int i = 1; i < 32; i++) {
         char name[32];
         if (i == 1) snprintf(name, sizeof name, "classes.dex");
@@ -204,10 +208,10 @@ static void *host_main(void *arg)
         size_t size;
         uint8_t *data = read_apk_entry(g_apk, name, &size);
         if (!data) break;
-        if (vm_add_dex(vm, data, size, err, sizeof err) != 0) { start_result(h, 0, err); return NULL; }
-        ndex++;
+        dex_data[ndex++] = data;
+        if (vm_add_dex(vm, data, size, err, sizeof err) != 0) { start_result(h, 0, err); goto cleanup; }
     }
-    if (!ndex) { start_result(h, 0, "the APK has no classes.dex"); return NULL; }
+    if (!ndex) { start_result(h, 0, "the APK has no classes.dex"); goto cleanup; }
 
     char desc[300];
     snprintf(desc, sizeof desc, "L%s;", man.launcher_activity);
@@ -217,15 +221,15 @@ static void *host_main(void *arg)
     if (!ac || !vm_instance_of(ac, activity_base)) {
         snprintf(err, sizeof err, "%s is not an android.app.Activity", man.launcher_activity);
         start_result(h, 0, err);
-        return NULL;
+        goto cleanup;
     }
-    if (vm_init_class(t, ac) != 0) { report_exception(h, t, "class init"); start_result(h, 0, "activity class initialization failed"); return NULL; }
+    if (vm_init_class(t, ac) != 0) { report_exception(h, t, "class init"); start_result(h, 0, "activity class initialization failed"); goto cleanup; }
     Ref act = vm_new_object(t, ac);
     vm_pin(vm, act);
     Method *ctor = vm_find_method(ac, "<init>", "()V");
-    if (!ctor) { start_result(h, 0, "the activity has no no-argument constructor"); return NULL; }
+    if (!ctor) { start_result(h, 0, "the activity has no no-argument constructor"); goto cleanup; }
     vm_invoke(t, ctor, (uint32_t[]){act});
-    if (t->exception) { report_exception(h, t, "constructor"); start_result(h, 0, "activity constructor threw"); return NULL; }
+    if (t->exception) { report_exception(h, t, "constructor"); start_result(h, 0, "activity constructor threw"); goto cleanup; }
 
     Ref bundle = vm_new_object(t, vm_find_class(vm, "Landroid/os/Bundle;"));
     vm_pin(vm, bundle);
@@ -233,15 +237,13 @@ static void *host_main(void *arg)
         Method *bc = vm_find_method(vm_find_class(vm, "Landroid/os/Bundle;"), "<init>", "()V");
         vm_invoke(t, bc, (uint32_t[]){bundle});
     }
-    if (!call(h, t, act, "henge_create", "(Landroid/os/Bundle;)V", (uint32_t[]){bundle}, 1)) { start_result(h, 0, "onCreate threw"); return NULL; }
+    if (!call(h, t, act, "henge_create", "(Landroid/os/Bundle;)V", (uint32_t[]){bundle}, 1)) { start_result(h, 0, "onCreate threw"); goto cleanup; }
     call(h, t, act, "henge_start", "()V", NULL, 0);
     call(h, t, act, "henge_resume", "()V", NULL, 0);
 
     /* the content view and, for a GLSurfaceView, the EGL surface */
     Object *ao = vm_obj(vm, act);
     Ref view = ao->u.words[vm_field_offset(ac, "henge_contentView")];
-    struct egl egl;
-    memset(&egl, 0, sizeof egl);
     int have_gl = 0, w = h->opts.width, hh = h->opts.height;
     Class *glview_cls = vm_find_class(vm, "Landroid/opengl/GLSurfaceView;");
     if (view && vm_instance_of(vm_obj(vm, view)->cls, glview_cls)) {
@@ -249,7 +251,7 @@ static void *host_main(void *arg)
         int ver = (int)vm_obj(vm, view)->u.words[vm_field_offset(glview_cls, "henge_glVersion")];
         if (egl_setup(&egl, h->opts.window, ver, &w, &hh) != 0) {
             start_result(h, 0, "could not create the EGL surface");
-            return NULL;
+            goto cleanup;
         }
         have_gl = 1;
         Object *vo = vm_obj(vm, view);
@@ -285,9 +287,9 @@ static void *host_main(void *arg)
     if (off_finished == UINT32_MAX || off_action == UINT32_MAX || off_count == UINT32_MAX || off_ids == UINT32_MAX ||
         off_xs == UINT32_MAX || off_ys == UINT32_MAX || !run_pending || (have_gl && !draw_frame) || (view && !dispatch_touch)) {
         start_result(h, 0, "henge's android classes lack a member the host needs");
-        return NULL;
+        goto cleanup;
     }
-    if (vm_init_class(t, handler_cls) != 0) { report_exception(h, t, "Handler"); start_result(h, 0, "Handler.<clinit> threw"); return NULL; }
+    if (vm_init_class(t, handler_cls) != 0) { report_exception(h, t, "Handler"); start_result(h, 0, "Handler.<clinit> threw"); goto cleanup; }
 
     h->running = 1;
     start_result(h, 1, NULL);
@@ -355,10 +357,11 @@ static void *host_main(void *arg)
     call(h, t, act, "henge_pause", "()V", NULL, 0);
     call(h, t, act, "henge_stop", "()V", NULL, 0);
     call(h, t, act, "henge_destroy", "()V", NULL, 0);
-    if (have_gl) {
-        egl.make_current(egl.dpy, NULL, NULL, NULL);
-        if (egl.destroy_surface) egl.destroy_surface(egl.dpy, egl.surf);
-        if (egl.destroy_context) egl.destroy_context(egl.dpy, egl.ctx);
+cleanup:
+    if (egl.dpy) {
+        if (egl.make_current) egl.make_current(egl.dpy, NULL, NULL, NULL);
+        if (egl.surf && egl.destroy_surface) egl.destroy_surface(egl.dpy, egl.surf);
+        if (egl.ctx && egl.destroy_context) egl.destroy_context(egl.dpy, egl.ctx);
     }
     h->running = 0;
     vm_android_log = NULL;
@@ -366,6 +369,8 @@ static void *host_main(void *arg)
     henge_apk_close(g_apk);
     g_apk = NULL;
     vm_destroy(vm);
+    for (size_t i = 0; i < ndex; i++)
+        free(dex_data[i]);
     g_host = NULL;
     return NULL;
 }
@@ -373,24 +378,35 @@ static void *host_main(void *arg)
 vm_host *vm_host_start(const struct vm_host_opts *opts, char *err, size_t errlen)
 {
     vm_host *h = calloc(1, sizeof *h);
+    if (!h) {
+        snprintf(err, errlen, "out of memory");
+        return NULL;
+    }
     h->opts = *opts;
+    atomic_init(&h->stop, 0);
+    atomic_init(&h->running, 0);
     pthread_mutex_init(&h->lock, NULL);
     pthread_cond_init(&h->started, NULL);
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setstacksize(&attr, 16u << 20);
-    if (pthread_create(&h->thread, &attr, host_main, h) != 0) {
+    int rc = pthread_create(&h->thread, &attr, host_main, h);
+    pthread_attr_destroy(&attr);
+    if (rc != 0) {
         snprintf(err, errlen, "could not start the VM thread");
+        pthread_mutex_destroy(&h->lock);
+        pthread_cond_destroy(&h->started);
         free(h);
         return NULL;
     }
-    pthread_attr_destroy(&attr);
     pthread_mutex_lock(&h->lock);
     while (!h->start_done) pthread_cond_wait(&h->started, &h->lock);
     pthread_mutex_unlock(&h->lock);
     if (!h->start_ok) {
         snprintf(err, errlen, "%s", h->start_err);
         pthread_join(h->thread, NULL);
+        pthread_mutex_destroy(&h->lock);
+        pthread_cond_destroy(&h->started);
         free(h);
         return NULL;
     }

@@ -131,6 +131,7 @@ struct LibraryTests {
         check(library.lastError?.contains("invalid.apk") == true && library.lastError?.contains("no-manifest.apk") == true,
               "batch import reports every failure together")
         await library.importFiles(from: [sample])
+        check(library.lastError == nil, "a successful batch clears previous errors")
         let visible = APKSortOrder.name.files(in: library.apks, matching: " 2")
         library.delete(visible)
         check(library.apks.map(\.fileName) == ["sample.apk"], "deleting a filtered selection preserves the other files")

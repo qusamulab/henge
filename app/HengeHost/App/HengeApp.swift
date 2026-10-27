@@ -21,6 +21,8 @@ struct HengeApp: App {
                 // Run the M1 self-test at every launch (scripts grep stdout for its summary line);
                 // it runs off the main thread so the first frame isn't blocked.
                 .task { if runner.state == .idle { runner.run() } }
+                // `-probe` prints the V1 / V2 / V6 platform probes (roadmap) to stdout.
+                .task { if UserDefaults.standard.bool(forKey: "probe") { _ = henge_run_probes() } }
                 // `-convertRun sample.apk` runs Convert & Run on that library APK at launch, so it can be
                 // driven from `devicectl device process launch --console` without tapping.
                 .task {

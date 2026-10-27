@@ -9,6 +9,8 @@ configFiles:
 settings:
   base:
     CODE_SIGN_STYLE: Automatic
+    # The converted code and runtime assembly require ARM64 on devices and simulators.
+    ARCHS: arm64
     SWIFT_VERSION: "5.0"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
 targets:
@@ -19,6 +21,8 @@ targets:
       - path: HengeHost
       - path: ../runtime
         group: runtime
+        # Unfinished local stdio replacements are not part of the production runtime.
+        excludes: ["shim_format.c", "shim_stdio.c", "shim_va.S", "shim_va.h"]
       # On-device conversion: ELF -> Mach-O converter and APK reader (without their CLIs).
       - path: ../convert
         group: convert

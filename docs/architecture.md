@@ -52,7 +52,7 @@ So henge **does not translate instructions**. It repacks the ELF as Mach-O, sign
 | Component | Language | Role |
 | --- | --- | --- |
 | `henge-convert` | C | Converts ELF `.so` files into Mach-O dylibs. Also patches code (svc, TLS register). Runs both on the iPhone and on macOS |
-| Signer | C/Swift | Signs converted dylibs with the same certificate as the host app. An existing implementation (zsign family) is a candidate; license to be checked |
+| Signer | C/Swift | Built-in ad hoc / CMS signer; signs converted dylibs with an imported developer identity matching the host app |
 | Mini linker | C | After `dlopen`, reads the ELF dynamic info, resolves relocations, and calls initializers |
 | `libhenge-bionic` | C + asm | Exports bionic function names and bridges to Darwin's libSystem. Absorbs ABI differences ([abi-differences.md](../research/abi-differences.md)) |
 | `libhenge-android` | C/ObjC | Implements NDK APIs (`libandroid.so`, etc.) with UIKit / Metal / AVFoundation |
@@ -84,7 +84,7 @@ Since November 2025, Google Play has required 16 KiB page support for new apps a
 - Place converted dylibs in the app container (`Library/Application Support/henge/<package>/`) and sign them in place.
 - The host app and the dylibs share a Team ID, so they pass library validation.
 - Free Apple ID certificates expire after 7 days, but only the host app needs to be re-signed. Converted dylibs are re-signed with the same certificate (automatically when the host app launches).
-- Status: the built-in signer (`convert/sign.c`) produces ad-hoc signatures (CodeDirectory + empty requirements + empty CMS), which are enough for macOS and the iOS Simulator. Identity signing (the CMS blob with the user's certificate) is still TODO.
+- Status: the built-in signer (`convert/sign.c`) supports ad-hoc signatures for macOS and the iOS Simulator, and developer identity signatures through `convert/cms.c` / `convert/signer_sec.c`. The iOS app imports the user's identity as a `.p12` and stores it in the Keychain.
 
 ## 5. Loading and execution
 
