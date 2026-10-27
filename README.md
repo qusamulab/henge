@@ -55,7 +55,9 @@ xcrun devicectl device process launch --device <UDID> --console <bundle id> -- -
   <img src="docs/images/screenshots/diagnostics-dark.png" width="200" alt="Diagnostics (dark)">
 </p>
 
-The host app has a **Library** for importing and running native APKs and a **Diagnostics** screen that runs the M1 self-test and shows whether a debugger is attached.
+The host app's **Library** supports filename search and sorting by import date, name or size (the selected order is remembered). Imports run in the background, validate the archive and binary manifest before adding it, and preserve existing files when names collide. A failed batch reports all failed files together while keeping successful imports.
+
+Open an APK to inspect its package, version, SDK requirements, native architectures and ARM64 libraries before **Convert & Run**. Missing ARM64 libraries or a missing NativeActivity entry library are explained before execution; these checks do not guarantee runtime compatibility. Java/Kotlin bytecode is identified, but the experimental `henge-vm` is not yet connected to the iOS host. Execution logs belong to the APK that produced them and can be shared from its detail screen. **Diagnostics** runs the M1 self-test and shows whether a debugger is attached.
 
 ## Building
 
@@ -64,6 +66,7 @@ Requirements: macOS on Apple Silicon, Xcode, Android NDK r27+ (`NDK_ROOT`, defau
 ```sh
 make help      # list targets and variables
 make test      # run converter, runtime, APK and Java / Kotlin VM tests on macOS
+make test-library # APK inspection, validated imports, batch errors, search and sorting
 make app       # xcodegen + build the host app for the iOS Simulator (SIM="iPhone 17")
 make app-run   # boot SIM, install, launch; fails unless the app logs "PASS: m1 (0 failures)"
 ```

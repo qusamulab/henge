@@ -9,7 +9,7 @@ include mk/samples.mk
 include mk/tests.mk
 include mk/app.mk
 
-.PHONY: all help samples samples-apk tests test test-layout test-m1 test-patch test-dl test-shim test-cxx test-vm test-activity test-sign test-apk app-dylib app app-run clean
+.PHONY: all help samples samples-apk tests test test-layout test-m1 test-patch test-dl test-shim test-cxx test-vm test-activity test-sign test-apk test-library app-dylib app app-run clean
 
 all: $(B)/henge-convert $(B)/henge-apk $(B)/libhenge-runtime.a samples tests ## build the tools, runtime, sample and tests
 
