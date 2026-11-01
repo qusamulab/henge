@@ -2,7 +2,13 @@ import SwiftUI
 
 struct LibraryView: View {
     @EnvironmentObject private var library: APKLibrary
-    @State private var importing = false
+    @State private var showingImporter = false
+    @State private var searchText = ""
+    @AppStorage("library.sortOrder") private var sortOrder = APKSortOrder.newest.rawValue
+
+    private var visibleAPKs: [APKFile] {
+        (APKSortOrder(rawValue: sortOrder) ?? .newest).files(in: library.apks, matching: searchText)
+    }
 
     var body: some View {
         NavigationStack {
@@ -11,48 +17,80 @@ struct LibraryView: View {
                     EmptyStateView(
                         title: "No APKs Yet",
                         systemImage: "shippingbox",
-                        message: "henge runs the native code inside Android apps on iPhone. "
-                            + "It converts each .so to Mach\u{2011}O, signs it, and loads it with a small linker. "
-                            + "Import an APK to add it to your library."
+                        message: "Import an Android APK to inspect it and run its ARM64 native code on iPhone."
                     ) {
                         Button {
-                            importing = true
+                            showingImporter = true
                         } label: {
                             Label("Import APK", systemImage: "square.and.arrow.down")
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
+                        .disabled(library.importing)
+                    }
+                } else if visibleAPKs.isEmpty {
+                    EmptyStateView(
+                        title: "No Matching APKs",
+                        systemImage: "magnifyingglass",
+                        message: "Try a different file name or clear the search."
+                    ) {
+                        Button("Clear Search") { searchText = "" }
+                            .buttonStyle(.bordered)
                     }
                 } else {
+                    let files = visibleAPKs
                     List {
-                        ForEach(library.apks) { apk in
+                        ForEach(files) { apk in
                             NavigationLink(value: apk) {
                                 APKRow(apk: apk)
                             }
                         }
                         .onDelete { offsets in
-                            library.delete(offsets.map { library.apks[$0] })
+                            library.delete(offsets.map { files[$0] })
                         }
                     }
+                    .refreshable { library.reload() }
                 }
             }
+            .searchable(text: $searchText, prompt: "Search APKs")
             .navigationTitle("Library")
             .navigationDestination(for: APKFile.self) { APKDetailView(apk: $0) }
             .toolbar {
-                if !library.apks.isEmpty {
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    if !library.apks.isEmpty {
+                        Menu {
+                            Picker("Sort APKs", selection: $sortOrder) {
+                                ForEach(APKSortOrder.allCases, id: \.rawValue) { order in
+                                    Text(order.title).tag(order.rawValue)
+                                }
+                            }
+                        } label: {
+                            Label("Sort APKs", systemImage: "arrow.up.arrow.down")
+                        }
                         Button {
-                            importing = true
+                            showingImporter = true
                         } label: {
                             Label("Import APK", systemImage: "plus")
                         }
+                        .disabled(library.importing)
                     }
                 }
             }
-            .fileImporter(isPresented: $importing, allowedContentTypes: [.apk],
+            .safeAreaInset(edge: .bottom) {
+                if library.importing {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Importing APKs…").font(.callout)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(.bar)
+                }
+            }
+            .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.apk],
                           allowsMultipleSelection: true) { result in
                 switch result {
-                case .success(let urls): library.importFiles(from: urls)
+                case .success(let urls): Task { await library.importFiles(from: urls) }
                 case .failure(let error): library.lastError = error.localizedDescription
                 }
             }

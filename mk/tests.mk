@@ -1,5 +1,5 @@
 # ---- tests (macOS) ----
-TESTS := test_layout test_m1 test_patch test_dl test_shim test_cxx test_activity test_apk test_apk_index test_vm test_vm_lifecycle
+TESTS := test_layout test_m1 test_patch test_dl test_shim test_cxx test_activity test_apk test_apk_index test_vm test_vm_lifecycle test_library
 tests: $(addprefix $(B)/tests/,$(TESTS))
 
 # Most tests drive converted code through the runtime (+ the APK reader for assets).
@@ -18,6 +18,14 @@ $(B)/tests/test_layout: tests/test_layout.c
 $(B)/tests/test_apk $(B)/tests/test_apk_index: $(B)/tests/%: tests/%.c $(B)/libhenge-apk.a
 	@mkdir -p $(@D)
 	$(COMPILE.c) -Iapk $< $(B)/libhenge-apk.a -lz $(LDFLAGS) $(LDLIBS) -o $@
+
+LIBRARY_SWIFT_SRCS := app/HengeHost/Core/APKMetadata.swift \
+    app/HengeHost/Features/Library/APKStorage.swift app/HengeHost/Features/Library/APKLibrary.swift
+
+$(B)/tests/test_library: tests/test_library.swift $(LIBRARY_SWIFT_SRCS) $(B)/libhenge-apk.a include/henge/apk.h
+	@mkdir -p $(@D)
+	xcrun swiftc -parse-as-library -import-objc-header include/henge/apk.h \
+	  tests/test_library.swift $(LIBRARY_SWIFT_SRCS) $(B)/libhenge-apk.a -lz -o $@
 
 # Converted dylibs for the macOS tests, ad-hoc signed by henge-convert's built-in
 # signer and checked with Apple's codesign. Always reconverted (FORCE) so CONVERT_FLAGS
@@ -83,7 +91,10 @@ test-apk: $(B)/tests/test_apk $(B)/tests/test_apk_index $(B)/samples/sample.apk 
 	$(B)/tests/test_apk_index
 	$(B)/henge-apk info $(B)/samples/sample.apk
 
-test: test-layout test-m1 test-patch test-dl test-shim test-cxx test-vm test-vm-lifecycle test-activity test-sign test-apk ## run all macOS tests
+test-library: $(B)/tests/test_library $(B)/samples/sample.apk ## test APK inspection, imports, search and sorting on macOS
+	$(B)/tests/test_library $(B)/samples/sample.apk
+
+test: test-layout test-m1 test-patch test-dl test-shim test-cxx test-vm test-vm-lifecycle test-activity test-sign test-apk test-library ## run all macOS tests
 	@echo "ALL TESTS PASSED"
 
 

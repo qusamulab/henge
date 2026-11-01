@@ -11,6 +11,7 @@ final class ConvertRunner: ObservableObject {
     @Published private(set) var state: State = .idle
     @Published private(set) var lines: [String] = []
     @Published private(set) var failures = 0
+    @Published private(set) var apkURL: URL?
 
     private var activity: OpaquePointer?
     private var loaded: LoadedLibrary?
@@ -34,6 +35,7 @@ final class ConvertRunner: ObservableObject {
     func run(apk: URL, stopAfter: TimeInterval? = nil, display: Bool = false) {
         guard state != .running, state != .active, state != .awaitingSurface else { return }
         state = .running
+        apkURL = apk.resolvingSymlinksInPath().standardizedFileURL
         displaying = display
         lines = []
         failures = 0
@@ -193,15 +195,19 @@ private final class ConvertSession {
         defer { henge_apk_close(handle) }
         pass("henge_apk_open(\(apk.lastPathComponent))")
 
-        var manifest = henge_apk_manifest()
-        guard henge_apk_read_manifest(handle, &manifest, &err, err.count) == 0 else {
-            fail("henge_apk_read_manifest: \(cString(err))")
+        let metadata: APKMetadata
+        do {
+            metadata = try APKMetadata(reading: handle)
+        } catch {
+            fail("read APK information: \(error.localizedDescription)")
             return .finished
         }
-        let package = withUnsafePointer(to: &manifest.package) {
-            $0.withMemoryRebound(to: CChar.self, capacity: 256) { String(cString: $0) }
-        }
+        let package = metadata.package
         pass("manifest: \(package)")
+        if let issue = metadata.executionIssue {
+            fail(issue)
+            return .finished
+        }
 
         var idx: UnsafeMutablePointer<Int>?
         var n = 0
@@ -222,7 +228,7 @@ private final class ConvertSession {
             return .finished
         }
 
-        let mainLib = "lib\(libName(&manifest)).so"
+        let mainLib = metadata.entryLibrary
         var firstSo: String?
         for k in 0..<n {
             let i = idx[k]
@@ -230,7 +236,7 @@ private final class ConvertSession {
             let soName = (String(cString: cname) as NSString).lastPathComponent
             let stem = soName.hasSuffix(".so") ? String(soName.dropLast(3)) : soName
             let out = dir.appendingPathComponent("\(stem).dylib")
-            if firstSo == nil || (manifest.native_activity != 0 && soName == mainLib) { firstSo = soName }
+            if firstSo == nil || (metadata.nativeActivity && soName == mainLib) { firstSo = soName }
             if usePrebuilt && fm.fileExists(atPath: out.path) {
                 pass("prebuilt \(stem).dylib")
                 continue
@@ -303,12 +309,6 @@ private final class ConvertSession {
     private final class LogBox {
         let emit: (String) -> Void
         init(emit: @escaping (String) -> Void) { self.emit = emit }
-    }
-
-    private func libName(_ m: inout henge_apk_manifest) -> String {
-        withUnsafePointer(to: &m.lib_name) {
-            $0.withMemoryRebound(to: CChar.self, capacity: 256) { String(cString: $0) }
-        }
     }
 
     /// henge_convert + signature. Returns the signed Mach-O.
