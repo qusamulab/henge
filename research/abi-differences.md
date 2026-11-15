@@ -11,9 +11,9 @@ The shims are compiled for Darwin, so **every function called from the Android s
 | `va_list` | A struct (`__stack`, `__gr_top`, `__vr_top`, `__gr_offs`, `__vr_offs`) | `char *` | The `vprintf` family gets a custom implementation that reads AAPCS-style `va_list` |
 | `long double` | 128-bit (IEEE quad) | 64-bit (same as `double`) | `strtold`, `%Lf`, etc. use compiler-rt soft float (`__addtf3`, etc.) |
 | Integer arguments narrower than 32 bits | Callee extends | Caller extends to 32 bits | Shim functions taking `bool`, `char`, or `short` explicitly mask or extend them on entry |
-| Placement of stack arguments | 8-byte slots | Packed by natural type alignment | Matters for functions that take 9 or more arguments. List those functions and handle each one individually |
+| Placement of stack arguments | 8-byte slots | Packed by natural type alignment | Matters for functions that take 9 or more arguments. List those functions and handle each one individually. Not handled for GLES, which is passed through: `glBlitFramebuffer`, `glTexSubImage3D` and `glCompressedTexSubImage3D` have two `int`-sized arguments on the stack ([architecture.md](../docs/architecture.md) §6) |
 | Signedness of `char` | Unsigned | Signed | A `char` crossing the boundary is treated like "integers narrower than 32 bits" above |
-| x18 | Not used by ordinary code; used by code built with Shadow Call Stack | Platform-reserved; the OS may overwrite it | The converter detects x18 use and warns. `.so` files using SCS are out of scope |
+| x18 | Not used by ordinary code; used by code built with Shadow Call Stack | Platform-reserved; XNU zeroes it (V2) | The converter rejects Shadow Call Stack code and warns about other x18 uses |
 
 The same differences apply in reverse when a shim calls back into Android code (`qsort` comparators, `pthread_create` start routines, `atexit`, etc.).
 Fixed-arity functions taking only pointers and `int` are unaffected, so list the others first.
@@ -21,23 +21,21 @@ Fixed-arity functions taking only pointers and `int` are unaffected, so list the
 ## 2. TLS and stack protection
 
 - Android's Clang reads the stack-protector value from `TPIDR_EL0 + 0x28` (a bionic TLS slot).
-- Darwin keeps its own thread pointer in `TPIDRRO_EL0`. If `TPIDR_EL0` is free and preserved across context switches and signals, henge can place a bionic-style TLS area there.
-- If it is not preserved, the converter rewrites `mrs xN, tpidr_el0` into a call to a shim function. This is possible because the rewrite happens before signing.
+- Darwin keeps its own thread pointer in `TPIDRRO_EL0`, and `TPIDR_EL0` holds the CPU number and is not preserved (V1 in [roadmap.md](../docs/roadmap.md)).
+- So the converter rewrites `mrs xN, tpidr_el0` to load a henge-managed per-thread pointer from Darwin's TSD. This is possible because the rewrite happens before signing.
 
-→ Verification item V1 in [roadmap.md](../docs/roadmap.md).
-
-ELF TLS (`__thread` variables, `R_AARCH64_TLSDESC`) is handled by henge managing its own static TLS block with the same layout as bionic (M2).
+ELF TLS (`__thread` variables) is supported through `R_AARCH64_TLSDESC` with one lazily allocated block per module and thread; static TLS (`R_AARCH64_TLS_TPREL64`) is rejected. Details in [m2-patching.md](../docs/m2-patching.md) §4.
 
 ## 3. Structs and constants
 
 | Target | Difference | Handling |
 | --- | --- | --- |
-| `pthread_mutex_t` | 40 bytes in bionic, 64 bytes in Darwin | Put an `os_unfair_lock` (4 bytes) and state directly inside the bionic-sized area. bionic's static initializers are all zero, so treat zero as uninitialized |
-| `pthread_cond_t`, `pthread_rwlock_t` | Same as above | Implement on top of `__ulock_wait` / `__ulock_wake` equivalents, or store a pointer to a separately allocated object |
+| `pthread_mutex_t` | 40 bytes in bionic, 64 bytes in Darwin | The first word holds a pointer to a heap-allocated Darwin mutex, created on first use. bionic's static initializers are small constants (0, or the mutex type in bits 14–15), so a word below 0x10000 means "not created yet" |
+| `pthread_cond_t`, `pthread_rwlock_t` | Same as above | Same as above |
 | `struct stat` | Field order and sizes | Write conversion functions |
 | `struct dirent` | Same as above | Same as above |
 | `struct sigaction` | Same as above; `sa_flags` values also differ | Same as above |
-| `errno` | Values differ (`EAGAIN` is 11 on Linux / 35 on Darwin, etc.) | Convert via a table. The shim provides `__errno()` |
+| `errno` | Values differ (`EAGAIN` is 11 on Linux / 35 on Darwin, etc.) | Convert via a table. The shim provides `__errno()`, backed by its own thread-local. Functions exported as direct pointers to libSystem do not update it yet ([architecture.md](../docs/architecture.md) §6) |
 | `open` / `mmap` / `fcntl` flags | Values differ | Convert via a table |
 | Signal numbers | Some differ (`SIGUSR1` is 10 on Linux / 30 on Darwin, etc.) | Convert via a table |
 | `ucontext_t` / `mcontext_t` | Completely different contents | Convert to Linux layout when passing to signal handlers. Used by crash reporters (M3 and later) |

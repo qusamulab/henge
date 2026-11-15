@@ -14,11 +14,11 @@ No JIT, no debugger, no jailbreak: henge **converts the APK's `.so` files to Mac
 - **Ahead-of-time conversion (AOT)**: Android and iPhone are both ARM64, so machine code is not translated. Repacking the ELF as Mach-O and signing it is enough to run it as signed native code.
 - **On-device**: Conversion, signing, and loading all happen inside a host app on the iPhone. Users do not need a Mac (development requires Xcode).
 - **Container model**: Like LiveContainer, the host app `dlopen`s the converted dylibs. No per-app reinstall is needed.
-- **Narrow scope**: Start with native games that do not use Java (NativeActivity / SDL2 / Godot, etc.). ART (Java/Kotlin) support comes later.
+- **Narrow scope**: Games whose heavy code is native. Pure NativeActivity apps run today; engines that start in a Java `Activity` (SDL2, Godot, ...) need their Java glue run by `henge-vm`, henge's own Dalvik interpreter, joined to the native code by JNI. That bridge is not built yet.
 
 ## Status
 
-Milestone **M1** (call a function in a converted `.so`) works on macOS, the iOS Simulator and a real iPhone. M2 is in progress: a `native_app_glue` NativeActivity APK is converted, signed with your own identity and run (`android_main`) entirely on an iPhone. It draws with OpenGL ES, reads touch input and assets, and plays sound. See [docs/roadmap.md](docs/roadmap.md).
+Milestones **M1** to **M3** work for the samples: a `native_app_glue` NativeActivity APK (C or C++) is converted, signed with your own identity and run (`android_main`) entirely on an iPhone. It draws with OpenGL ES, reads touch input and assets, and plays sound. No third-party game runs yet: that needs JNI, a wider libc shim and the other prerequisites listed in [docs/roadmap.md](docs/roadmap.md).
 
 | | macOS | iOS Simulator | iPhone |
 | --- | --- | --- | --- |
