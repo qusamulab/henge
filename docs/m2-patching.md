@@ -24,14 +24,16 @@ The `TPIDR_EL0` behavior answers V1 on macOS: the register is not free. Clang's 
 
 ## 3. Patch island
 
-When there is anything to patch, the Mach-O header area grows to hold an island (`__TEXT,__henge`) in front of the ELF image. `H` (the shift from Mach-O vmaddr to ELF vaddr) becomes the next 16 KiB boundary after the island instead of the fixed `0x4000`; the runtime reads it from the `__TEXT,__elf` section address. A shift that is a multiple of 16 KiB keeps every `adrp` result valid.
+When there are instruction patches or strong function imports, the Mach-O header area grows to hold an island (`__TEXT,__henge`) in front of the ELF image. `H` (the shift from Mach-O vmaddr to ELF vaddr) becomes the next 16 KiB boundary after the island instead of the fixed `0x4000`; the runtime reads it from the `__TEXT,__elf` section address. A shift that is a multiple of 16 KiB keeps every `adrp` result valid.
 
 ```
 __TEXT  0x0000      Mach-O header + load commands (+256 bytes for LC_CODE_SIGNATURE)
-        __henge     henge_island_hdr | svc thunk | tpidr thunk per Xn | trampoline per site
+        __henge     henge_island_hdr | svc thunk | tpidr thunk per Xn | trampoline per site | function-stub table/code/names
         H           ELF image (R, RX)
 __DATA              ELF RW image ... bss | slots[HENGE_NSLOTS]
 ```
+
+Patch-island version 2 also records `{name_vmaddr, entry_vmaddr}` per strong `STT_FUNC` import. Each five-instruction stub loads its name into x0 and tail-branches through `HENGE_SLOT_MISSING`. The linker uses these only when normal symbol resolution fails. Data/TLS/unknown imports fail loading and weak imports resolve to zero. Old island versions must be reconverted; the app cache version includes the layout version.
 
 Each patched instruction becomes `b trampoline`. A trampoline is four instructions, so `x30` survives even in leaf functions that never saved it:
 
@@ -49,6 +51,7 @@ Thunks reach the runtime through the slots in `__DATA`, which `henge_link` fills
 | `HENGE_SLOT_SVC` | `hr_svc_entry` |
 | `HENGE_SLOT_TP_KEY` | byte offset of henge's pthread key in Darwin's TSD array |
 | `HENGE_SLOT_TP_SLOW` | `hr_tp_slow_entry` |
+| `HENGE_SLOT_MISSING` | named unsupported-function handler (logs, records crash reason, aborts) |
 
 The svc thunk saves `x16` and calls `*slot[SVC]`. `hr_svc_entry` (runtime/entry.S) saves x0–x17, q0–q31, NZCV and FPSR, calls `hr_syscall` (runtime/syscall.c), and returns only `x0` changed, as the kernel would. Linux numbers, flags and errno values are translated in `runtime/linux.c`. Unknown syscalls return `-ENOSYS`.
 

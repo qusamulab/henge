@@ -14,11 +14,11 @@ No JIT, no debugger, no jailbreak: henge **converts the APK's `.so` files to Mac
 - **Ahead-of-time conversion (AOT)**: Android and iPhone are both ARM64, so machine code is not translated. Repacking the ELF as Mach-O and signing it is enough to run it as signed native code.
 - **On-device**: Conversion, signing, and loading all happen inside a host app on the iPhone. Users do not need a Mac (development requires Xcode).
 - **Container model**: Like LiveContainer, the host app `dlopen`s the converted dylibs. No per-app reinstall is needed.
-- **Narrow scope**: Games whose heavy code is native. Pure NativeActivity apps run today; engines that start in a Java `Activity` (SDL2, Godot, ...) need their Java glue run by `henge-vm`, henge's own Dalvik interpreter, joined to the native code by JNI. That bridge is not built yet.
+- **Narrow scope**: Games whose heavy code is native. Pure NativeActivity apps run today; engines that start in a Java `Activity` (SDL2, Godot, ...) need their Java glue run by `henge-vm`, henge's own Dalvik interpreter, joined to the native code by JNI. The bridge and Java launcher host route are implemented; Android framework coverage and third-party engine compatibility are still limited.
 
 ## Status
 
-Milestones **M1** to **M3** work for the samples: a `native_app_glue` NativeActivity APK (C or C++) is converted, signed with your own identity and run (`android_main`) entirely on an iPhone. It draws with OpenGL ES, reads touch input and assets, and plays sound. No third-party game runs yet: that needs JNI, a wider libc shim and the other prerequisites listed in [docs/roadmap.md](docs/roadmap.md).
+Milestones **M1** to **M3** work for the samples: a `native_app_glue` NativeActivity APK (C or C++) is converted, signed with your own identity and run (`android_main`) entirely on an iPhone. It draws with OpenGL ES, reads touch input and assets, and plays sound. No third-party game runs yet: that needs a wider Android framework/shim surface and device validation described in [docs/roadmap.md](docs/roadmap.md).
 
 | | macOS | iOS Simulator | iPhone |
 | --- | --- | --- | --- |
@@ -27,16 +27,16 @@ Milestones **M1** to **M3** work for the samples: a `native_app_glue` NativeActi
 | Calls, globals via GOT, function-pointer tables, `init_array` | ✅ | ✅ | ✅ |
 | bionic shim: pthread objects, errno, fd I/O, liblog, ALooper, AConfiguration | ✅ | — | ✅ |
 | NativeActivity host (`android_main` lifecycle, touch input, `assets/`, stub JNI) | ✅ | — | ✅ |
-| OpenGL ES drawing (EGL on EAGL, GLES passed through to iOS), AAudio sound | — | — | ✅ |
+| OpenGL ES drawing (EGL on EAGL, generated GLES ABI wrappers), AAudio sound | — | — | ✅ |
 | APK → `.so` → Mach-O → signature with your identity → run, inside the app (`Convert & Run`) | — | — | ✅ |
 
 The host app reads an APK, extracts `lib/arm64-v8a/*.so`, converts it to Mach-O, **signs it on the device** and loads it. iOS only loads a library from the app container if it is signed by the same developer team as the app, so import your own identity once: export your Apple Development certificate and private key from Keychain Access as a `.p12`, open the app's **Signing** tab and import it (the `.p12` and its password stay in the device's Keychain; nothing leaves the phone). Without an identity the library gets an ad hoc signature, which iOS rejects (`code signature invalid`). `henge-convert --sign-identity NAME` and `--p12 FILE` (password in `$HENGE_P12_PASSWORD`) do the same on the Mac.
 
-A NativeActivity APK opens full screen after **Convert & Run**: EGL is implemented on EAGL (the app's window is a `CAEAGLLayer`), GLES calls go straight to iOS's OpenGL ES, touches arrive as Android motion events, `AAssetManager` reads the APK's `assets/`, and AAudio plays through an AudioUnit. Tap ✕ to close it; the ● button records the screen with ReplayKit.
+A NativeActivity APK opens full screen after **Convert & Run**: EGL is implemented on EAGL (the app's window is a `CAEAGLLayer`), GLES calls use generated Android/Darwin ABI wrappers to iOS's OpenGL ES, touches arrive as Android motion events, `AAssetManager` reads the APK's `assets/`, and AAudio plays through an AudioUnit. Tap ✕ to close it; the ● button records the screen with ReplayKit.
 
 <p><img src="docs/images/screenshots/game.png" width="240" alt="Catch, the sample game, running on an iPhone"></p>
 
-`samples/libgame` is a small C game (NativeActivity + OpenGL ES 2 + touch + AAudio + `assets/game.cfg`): drag to move the paddle and catch the squares; it plays itself after 5 idle seconds. `make samples-apk` builds `build/samples/game.apk`. The iOS app currently launches native code. Separately, `vm/` provides an experimental Dalvik interpreter with Java / Kotlin tests (`make test-vm`); it is not ART or a complete Android framework. JNI in the native runtime remains a stub.
+`samples/libgame` is a small C game (NativeActivity + OpenGL ES 2 + touch + AAudio + `assets/game.cfg`): drag to move the paddle and catch the squares; it plays itself after 5 idle seconds. `make samples-apk` builds `build/samples/game.apk`. The iOS app supports both NativeActivity and Java launcher routes. `vm/` provides the Dalvik interpreter and JNI bridge; it is not ART or a complete Android framework. `make test-jni` tests native/Java round trips, GC roots and native thread callbacks. `make test-vm-jni-host` launches a Java Activity APK through JNI and Stop on macOS. The new iOS route builds for the simulator; it has not yet been executed on an iPhone.
 
 **Security notes.** Signing keys are your own, never part of this repository (`.gitignore` covers `*.p12` and `*.mobileprovision`; `app/Local.xcconfig` holds your team ID). The imported `.p12` and its password are stored in the device's Keychain (this device only, after first unlock), so anyone who can unlock the phone and run henge can sign with that identity; remove it from the Signing tab when you no longer need it, and delete the `.p12` you exported. henge signs the native code of whatever APK you run with your developer certificate, and that code runs with the app's full privileges inside the iOS sandbox, so only run APKs you trust. The app's `Documents` folder is visible in the Files app (used to import the `.p12`).
 
@@ -57,7 +57,23 @@ xcrun devicectl device process launch --device <UDID> --console <bundle id> -- -
 
 The host app's **Library** supports filename search and sorting by import date, name or size (the selected order is remembered). Imports run in the background, validate the archive and binary manifest before adding it, and preserve existing files when names collide. A failed batch reports all failed files together while keeping successful imports.
 
-Open an APK to inspect its package, version, SDK requirements, native architectures and ARM64 libraries before **Convert & Run**. Missing ARM64 libraries or a missing NativeActivity entry library are explained before execution; these checks do not guarantee runtime compatibility. Java/Kotlin bytecode is identified, but the experimental `henge-vm` is not yet connected to the iOS host. Execution logs belong to the APK that produced them and can be shared from its detail screen. **Diagnostics** runs the M1 self-test and shows whether a debugger is attached.
+Open an APK to inspect its package, version, SDK requirements, native architectures and ARM64 libraries before **Convert & Run**. Missing ARM64 libraries or a missing NativeActivity entry library are explained before execution; these checks do not guarantee runtime compatibility. Java/Kotlin launchers use henge-vm and JNI. The detail screen also lists unresolved native symbols and load blockers. Execution logs belong to the APK that produced them and can be shared from its detail screen. **Diagnostics** runs the M1 self-test and shows whether a debugger is attached.
+
+The host allows **one guest per process**. After Stop, a load failure, or the native Diagnostics test, close henge from the app switcher and reopen it before the next run. Native code, JNI VM contexts and guest threads can remain alive until process exit; signing keys are not isolated from the guest.
+
+Imports cache unsigned conversion by APK hash/converter/platform. Signed outputs have a separate certificate key and 24-hour reuse limit, with hashes checked on cache hits; saved app data is outside the cache. File-backed extraction, conversion and signing avoid whole-library heap copies. Android `dlopen` can also convert/sign an unconverted ELF on demand through a host hook; immediate and subsequent loads pass on macOS, while iPhone acceptance remains unverified.
+
+The host persists signal crash records (image/registers and unsupported-function name), then displays/shares them after restart. This cannot capture SIGKILL or out-of-memory termination. Callable missing imports use signed abort stubs; unresolved data still blocks loading.
+
+To inspect Java class-library gaps without executing an APK:
+
+```sh
+python3 scripts/check-dex.py path/to/app.apk          # exit 1 if references are missing
+python3 scripts/check-dex.py --json path/to/app.apk   # classes, methods and fields
+make test-generated                                # generated libc/GLES/JNI and scanner regressions
+```
+
+JNI reflection conversion, DefineClass, monitors and direct ByteBuffer operations are explicitly unsupported. Java Thread.start remains synchronous, and engine SurfaceView/service glue needs further work. Free Apple ID signing, automatic process relaunch/key isolation, ANGLE and third-party SDL2 execution are not validated or complete; see the detailed status in [the roadmap](docs/roadmap.md).
 
 ## Building
 
@@ -93,7 +109,7 @@ DEX rebuild scripts share the same `ANDROID_HOME` default as Make and stop on co
 
 | Path | Contents |
 | --- | --- |
-| `include/henge/` | Public headers: `henge.h` (converter/runtime contract), `elf64.h` (ELF64 definitions) |
+| `include/henge/` | Public headers: `henge.h` (converter/runtime contract), `vm_host.h` (Java Activity host), `jni.h` (JNI ABI), `elf64.h` (ELF64 definitions) |
 | `convert/` | ELF → Mach-O converter library (C, no dependencies): ELF validation, instruction scan, Mach-O writer, manifest, ad-hoc signer |
 | `convert/main.c` | `henge-convert` CLI (not part of the library) |
 | `apk/` | APK reader library: `apk.c` owns archive lifetime and indexed name lookup, `zip.c` parses / extracts ZIP entries, `axml.c` reads the manifest; `main.c` is the `henge-apk` CLI |
@@ -104,7 +120,7 @@ DEX rebuild scripts share the same `ANDROID_HOME` default as Make and stop on co
 | `samples/` | Test `.so` sources built with the NDK (`lib*/`), sample APK manifests (`apk*/`), `kcatch/` Kotlin sample game for henge-vm |
 | `tests/` | Converter / runtime integration, APK parsing / indexed lookup, VM execution / lifecycle tests |
 | `mk/` | Build configuration, library sources, samples, tests and iOS app targets |
-| `scripts/` | Xcode pre-build phase, simulator runner used by `make app-run`, dex embedding, shared JDK / SDK setup for the dex build scripts |
+| `scripts/` | Reviewed libc/GLES/JNI generators, DEX reference scanner, Xcode pre-build phase, simulator runner used by `make app-run`, dex embedding, shared JDK / SDK setup for the dex build scripts |
 | `docs/` | Design docs and images |
 | `research/` | Background research |
 

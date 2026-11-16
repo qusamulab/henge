@@ -188,3 +188,32 @@ int t_format(void) {
     STEP(9, sscanf("speed=380.5", "speed=%lf", &d) == 1 && d == 380.5);
     return 0;
 }
+
+#include <math.h>
+/* Calls originate in actual Android code, including its TLS errno and FILE interface. */
+int t_libc_errno(void) {
+    char *end;
+    errno = EBUSY;
+    STEP(1, strtoul("42", &end, 10) == 42 && !*end && errno == EBUSY);
+    errno = 0;
+    (void)strtoul("99999999999999999999999999999999999999999", &end, 10);
+    STEP(2, errno == ERANGE);
+    errno = 0;
+    STEP(3, fopen("/henge-missing-directory/file", "r") == NULL && errno == ENOENT);
+    struct timespec bad = {0, 1000000000};
+    errno = 0;
+    STEP(4, nanosleep(&bad, NULL) == -1 && errno == EINVAL);
+    int fds[2]; STEP(5, pipe2(fds, O_NONBLOCK) == 0);
+    char path[128]; snprintf(path, sizeof path, "/dev/fd/%d", fds[0]);
+    FILE *stream = fopen(path, "r"); STEP(6, stream != NULL);
+    char b; errno = 0;
+    STEP(7, fread(&b, 1, 1, stream) == 0 && ferror(stream) && errno == EAGAIN);
+    fclose(stream); close(fds[0]); close(fds[1]);
+    errno = 0;
+    double (*volatile root)(double) = sqrt;
+    STEP(8, isnan(root(-1.0)) && errno == EDOM);
+    char guard = 'x';
+    STEP(9, snprintf(&guard, 0, "%s", "abc") == 3 && guard == 'x');
+    STEP(10, snprintf(NULL, 0, "%d", 123) == 3);
+    return 0;
+}

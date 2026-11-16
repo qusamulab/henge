@@ -19,12 +19,15 @@ struct APKMetadata: Hashable, Sendable {
 
     /// These checks only establish whether the host can attempt execution, not full compatibility.
     var executionIssue: String? {
-        if nativeLibraries.isEmpty {
+        if nativeLibraries.isEmpty && !hasDex {
             return "This host needs ARM64 native libraries (lib/arm64-v8a/*.so). "
-                + "Java/Kotlin activities cannot run in the iOS host yet."
+                + "This APK also has no classes.dex."
         }
         if nativeActivity && !nativeLibraries.contains(entryLibrary) {
             return "The NativeActivity entry library \(entryLibrary) is missing for arm64-v8a."
+        }
+        if !nativeActivity && hasDex && launcherActivity.isEmpty {
+            return "This APK has no MAIN / LAUNCHER activity."
         }
         return nil
     }

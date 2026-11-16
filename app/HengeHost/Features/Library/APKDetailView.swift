@@ -5,6 +5,8 @@ struct APKDetailView: View {
     @EnvironmentObject private var converter: ConvertRunner
     @State private var metadata: APKMetadata?
     @State private var inspectionError: String?
+    @State private var preparation: APKPreparation.Prepared?
+    @State private var preparationError: String?
 
     private var isCurrentRun: Bool { converter.apkURL == apk.url.resolvingSymlinksInPath().standardizedFileURL }
     private var runnerBusy: Bool {
@@ -44,17 +46,20 @@ struct APKDetailView: View {
                     Button {
                         converter.run(apk: apk.url, display: true)
                     } label: {
-                        Label(isCurrentRun && converter.state == .running ? "Running…" : "Convert & Run", systemImage: "play.fill")
+                        Label(converter.requiresRestart && !runnerBusy ? "Restart Required" : isCurrentRun && converter.state == .running ? "Running…" : "Convert & Run", systemImage: "play.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .disabled(runnerBusy || metadata == nil || metadata?.executionIssue != nil)
+                    .disabled(runnerBusy || converter.requiresRestart || metadata == nil || metadata?.executionIssue != nil
+                              || preparation == nil || preparation?.issues.isEmpty == false || preparationError != nil)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                 }
             } footer: {
-                Text(runnerBusy
+                Text(converter.requiresRestart && !runnerBusy
+                     ? "Close henge from the app switcher and open it again before running another APK."
+                     : runnerBusy
                      ? (isCurrentRun ? "This APK is running. Close the game screen or use Stop to end the session."
                         : "Another APK is running. Stop it before starting this one.")
                      : "Converts and signs the ARM64 native libraries, then loads them. NativeActivity apps open a game screen.")
@@ -90,13 +95,13 @@ struct APKDetailView: View {
                     if let issue = metadata.executionIssue {
                         Label(issue, systemImage: "exclamationmark.triangle")
                     } else {
-                        Label("ARM64 native libraries found", systemImage: "checkmark.circle")
+                        Label(metadata.nativeLibraries.isEmpty ? "Java launcher found" : "ARM64 native libraries found", systemImage: "checkmark.circle")
                         Text("Execution is experimental. Other Android APIs or dependencies may still be unsupported.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                     if metadata.hasDex {
-                        Text("This APK contains Java/Kotlin bytecode. The iOS host runs native libraries only; the experimental henge-vm is not connected to this app yet.")
+                        Text("This APK contains Java/Kotlin bytecode. Java activities use the experimental henge-vm and its JNI bridge. Android framework coverage is limited.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -107,6 +112,41 @@ struct APKDetailView: View {
                             Text(name).font(.footnote.monospaced())
                         }
                     }
+                }
+            }
+
+            if let preparation {
+                Section("Native Compatibility") {
+                    ForEach(preparation.libraries) { library in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(library.name).font(.footnote.monospaced())
+                            if let error = library.error {
+                                Text(error).foregroundStyle(.red)
+                            } else {
+                                let missing = preparation.unresolved(in: library)
+                                Text("\(library.imports.count) imports, \(missing.count) unresolved")
+                                    .foregroundStyle(.secondary)
+                                ForEach(missing, id: \.self) { symbol in
+                                    Text("\(symbol.name)\(symbol.weak ? " (weak)" : symbol.type == 2 ? " (stops if called)" : " (blocks loading)")")
+                                        .font(.caption.monospaced())
+                                }
+                            }
+                        }
+                    }
+                    ForEach(preparation.issues, id: \.self) { Text($0).foregroundStyle(.red) }
+                    Text("Static checks cannot establish runtime compatibility. Unsupported functions stop the app if called.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            } else if let preparationError {
+                Section("Native Compatibility") { Text(preparationError) }
+            } else if metadata != nil {
+                Section("Native Compatibility") { ProgressView("Checking native libraries…") }
+            }
+
+            if let crash = converter.previousCrash {
+                Section("Previous Crash") {
+                    Text(crash).font(.caption.monospaced()).textSelection(.enabled)
+                    ShareLink(item: crash) { Label("Share Crash", systemImage: "square.and.arrow.up") }
                 }
             }
 
@@ -134,8 +174,11 @@ struct APKDetailView: View {
 
     @MainActor
     private func inspect() async {
+        converter.refreshProcessState()
         metadata = nil
         inspectionError = nil
+        preparation = nil
+        preparationError = nil
         let url = apk.url
         let result = await Task.detached(priority: .userInitiated) {
             Result { try APKMetadata.read(from: url) }
@@ -144,6 +187,15 @@ struct APKDetailView: View {
         switch result {
         case .success(let value): metadata = value
         case .failure(let error): inspectionError = error.localizedDescription
+        }
+        guard metadata != nil else { return }
+        let prepared = await Task.detached(priority: .userInitiated) {
+            Result { try APKPreparation.prepare(url) }
+        }.value
+        guard !Task.isCancelled else { return }
+        switch prepared {
+        case .success(let value): preparation = value
+        case .failure(let error): preparationError = error.localizedDescription
         }
     }
 }

@@ -10,3 +10,6 @@ app/Local.xcconfig
 
 # javac crash dumps
 javac.*.args
+
+# Python generator/scanner bytecode
+__pycache__/

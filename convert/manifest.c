@@ -45,7 +45,7 @@ static void sb_json_str(struct sbuf *b, const char *s, size_t maxlen) {
 
 char *hc_manifest_build(const struct elf_info *e, const struct henge_convert_opts *opts,
                         const struct scan_result *scan, const struct henge_symbol *imports,
-                        size_t nimports) {
+                        size_t nimports, uint64_t shift) {
     const Elf64_Dyn *dyn = e->dyn;
     const char *dynstr = e->dynstr;
     uint64_t strsz = e->strsz;
@@ -60,7 +60,7 @@ char *hc_manifest_build(const struct elf_info *e, const struct henge_convert_opt
     else sb_printf(&b, "null");
     sb_printf(&b, ",\n  \"install_name\": ");
     sb_json_str(&b, opts->install_name, strlen(opts->install_name));
-    sb_printf(&b, ",\n  \"shift\": %llu,\n  \"page_size\": %llu,\n", (unsigned long long)HC_SHIFT,
+    sb_printf(&b, ",\n  \"shift\": %llu,\n  \"page_size\": %llu,\n", (unsigned long long)shift,
               (unsigned long long)HC_PAGE);
     sb_printf(&b, "  \"dynamic_vaddr\": %llu,\n", (unsigned long long)e->dyn_ph->p_vaddr);
     sb_printf(&b, "  \"segments\": [\n");

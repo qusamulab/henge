@@ -87,15 +87,24 @@ void hc_symbols_free(struct henge_symbol *imports, size_t n);
 /* Builds the Mach-O dylib (docs/m1-elf-to-macho.md §4), applying the scan's patches
  * (docs/m2-patching.md). *out is malloc'd on success. */
 int hc_macho_write(const struct elf_info *e, const struct henge_convert_opts *opts,
-                   const struct scan_result *scan, uint8_t **out, size_t *out_size, char *err,
+                   const struct scan_result *scan, const struct henge_symbol *imports, size_t nimports,
+                   int fd, uint8_t **out, size_t *out_size, char *err,
                    size_t errlen);
+void *hc_buffer_alloc(size_t size, int fd);
+void hc_buffer_free(void *buffer, size_t size, int fd);
+int hc_map_input(const char *path, const uint8_t **data, size_t *size, char *err, size_t errlen);
+int hc_output_open(const char *path, char **temporary, char *err, size_t errlen);
+int hc_output_finish(int fd, const char *temporary, const char *path, int success, char *err, size_t errlen);
+int hc_sign_to_fd(const uint8_t *macho, size_t size, const char *identifier,
+                   const struct henge_signer *signer, int fd, uint8_t **out, size_t *out_size,
+                   char *err, size_t errlen);
 
 /* ---- manifest.c ---- */
 
 /* Returns the malloc'd manifest JSON, or NULL when out of memory. */
 char *hc_manifest_build(const struct elf_info *e, const struct henge_convert_opts *opts,
                         const struct scan_result *scan, const struct henge_symbol *imports,
-                        size_t nimports);
+                        size_t nimports, uint64_t shift);
 
 /* ---- sign.c / cms.c / apple_certs.c: signing with an identity ---- */
 

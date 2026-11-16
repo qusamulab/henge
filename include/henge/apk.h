@@ -26,6 +26,8 @@ long henge_apk_find(const henge_apk *apk, const char *name); /* index, or -1 */
  * (caller frees). Returns 0 on success, -1 on failure (see err). */
 int henge_apk_extract(const henge_apk *apk, size_t i, uint8_t **out, size_t *size, char *err,
                       size_t errlen);
+/* CRC-checked extraction to a file-backed mapping; atomically replaces path on success. */
+int henge_apk_extract_file(const henge_apk *apk, size_t i, const char *path, char *err, size_t errlen);
 
 /* Indices of the lib/<abi>/<name>.so entries (no subdirectories). *idx is malloc'd (caller frees;
  * NULL when *n is 0). Returns 0, or -1 when out of memory. */

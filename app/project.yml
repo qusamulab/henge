@@ -30,6 +30,13 @@ targets:
       - path: ../apk
         group: apk
         excludes: ["main.c"]
+      - path: ../vm
+        group: vm
+        excludes: ["core", "android", "tests"]
+      - path: ../build/vm/core_dex.c
+        group: vm
+      - path: ../build/vm/android_dex.c
+        group: vm
       # Converted by `make app-dylib` (pre-build phase below); embedded + signed into Frameworks/.
       - path: ../build/app/libadd.dylib
         group: Frameworks

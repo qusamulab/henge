@@ -9,9 +9,9 @@ The shims are compiled for Darwin, so **every function called from the Android s
 | --- | --- | --- | --- |
 | Variadic arguments | Passed in registers (x0-x7, v0-v7), same as named arguments | **All passed on the stack** | Variadic functions (`printf`, `open`, `ioctl`, `fcntl`, etc.) save registers in an asm entry stub and build an AAPCS-style `va_list` |
 | `va_list` | A struct (`__stack`, `__gr_top`, `__vr_top`, `__gr_offs`, `__vr_offs`) | `char *` | The `vprintf` family gets a custom implementation that reads AAPCS-style `va_list` |
-| `long double` | 128-bit (IEEE quad) | 64-bit (same as `double`) | `strtold`, `%Lf`, etc. use compiler-rt soft float (`__addtf3`, etc.) |
+| `long double` | 128-bit (IEEE quad) | 64-bit (same as `double`) | Not implemented: `strtold` and `%Lf` require quad-precision adapters; do not pass them through as Darwin doubles |
 | Integer arguments narrower than 32 bits | Callee extends | Caller extends to 32 bits | Shim functions taking `bool`, `char`, or `short` explicitly mask or extend them on entry |
-| Placement of stack arguments | 8-byte slots | Packed by natural type alignment | Matters for functions that take 9 or more arguments. List those functions and handle each one individually. Not handled for GLES, which is passed through: `glBlitFramebuffer`, `glTexSubImage3D` and `glCompressedTexSubImage3D` have two `int`-sized arguments on the stack ([architecture.md](../docs/architecture.md) §6) |
+| Placement of stack arguments | 8-byte slots | Packed by natural type alignment | Matters for functions that take 9 or more arguments. List those functions and handle each one individually. Generated GLES wrappers now handle `glBlitFramebuffer`, `glTexSubImage3D` and `glCompressedTexSubImage3D` and other calls have packed Darwin stack arguments ([architecture.md](../docs/architecture.md) §6) |
 | Signedness of `char` | Unsigned | Signed | A `char` crossing the boundary is treated like "integers narrower than 32 bits" above |
 | x18 | Not used by ordinary code; used by code built with Shadow Call Stack | Platform-reserved; XNU zeroes it (V2) | The converter rejects Shadow Call Stack code and warns about other x18 uses |
 
@@ -35,7 +35,7 @@ ELF TLS (`__thread` variables) is supported through `R_AARCH64_TLSDESC` with one
 | `struct stat` | Field order and sizes | Write conversion functions |
 | `struct dirent` | Same as above | Same as above |
 | `struct sigaction` | Same as above; `sa_flags` values also differ | Same as above |
-| `errno` | Values differ (`EAGAIN` is 11 on Linux / 35 on Darwin, etc.) | Convert via a table. The shim provides `__errno()`, backed by its own thread-local. Functions exported as direct pointers to libSystem do not update it yet ([architecture.md](../docs/architecture.md) §6) |
+| `errno` | Values differ (`EAGAIN` is 11 on Linux / 35 on Darwin, etc.) | Convert via a table. The shim provides `__errno()`, backed by its own thread-local. Reviewed errno-setting libc exports now use generated wrappers that translate it; successful calls preserve guest errno ([architecture.md](../docs/architecture.md) §6) |
 | `open` / `mmap` / `fcntl` flags | Values differ | Convert via a table |
 | Signal numbers | Some differ (`SIGUSR1` is 10 on Linux / 30 on Darwin, etc.) | Convert via a table |
 | `ucontext_t` / `mcontext_t` | Completely different contents | Convert to Linux layout when passing to signal handlers. Used by crash reporters (M3 and later) |

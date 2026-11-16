@@ -3,6 +3,7 @@
  * { touches, Handler callbacks, onDrawFrame, swap }. */
 #include "vm.h"
 #include "henge/apk.h"
+#include "../runtime/android.h"
 
 #include <pthread.h>
 #include <stdatomic.h>
@@ -28,8 +29,12 @@ struct vm_host {
     atomic_int running;
     struct touch queue[TOUCH_QUEUE];
     int qhead, qtail;
+    struct ANativeWindow window;
+    atomic_int width, height;
+    int retained; /* native libraries can keep JavaVM/window pointers until process exit */
 };
 
+static atomic_int g_live;
 static vm_host *g_host; /* the log / asset callbacks have no user pointer */
 
 static void log_line(vm_host *h, int prio, const char *tag, const char *msg)
@@ -184,6 +189,7 @@ static void *host_main(void *arg)
     vm_host *h = arg;
     char err[512];
     VM *vm = NULL;
+    Thread *t = NULL;
     uint8_t *dex_data[31] = {0};
     size_t ndex = 0;
     struct egl egl = {0};
@@ -199,7 +205,8 @@ static void *host_main(void *arg)
 
     vm = vm_create();
     if (!vm) { start_result(h, 0, "could not create the VM"); goto cleanup; }
-    Thread *t = vm_main_thread(vm);
+    t = vm_main_thread(vm);
+    vm_enter(t);
 
     for (int i = 1; i < 32; i++) {
         char name[32];
@@ -292,9 +299,17 @@ static void *host_main(void *arg)
     if (vm_init_class(t, handler_cls) != 0) { report_exception(h, t, "Handler"); start_result(h, 0, "Handler.<clinit> threw"); goto cleanup; }
 
     h->running = 1;
+    vm_leave(t);
     start_result(h, 1, NULL);
 
     while (!h->stop) {
+        vm_enter(t);
+        int new_width = atomic_load(&h->width), new_height = atomic_load(&h->height);
+        if (have_gl && new_width > 0 && new_height > 0 && (new_width != w || new_height != hh)) {
+            w = new_width; hh = new_height;
+            h->window.width = w; h->window.height = hh;
+            call(h, t, view, "henge_surfaceChanged", "(II)V", (uint32_t[]){(uint32_t)w, (uint32_t)hh}, 2);
+        }
         /* touches */
         for (;;) {
             struct touch tc;
@@ -342,17 +357,21 @@ static void *host_main(void *arg)
         }
 
         vm_invoke(t, run_pending, NULL);
-        if (t->exception) { report_exception(h, t, "Handler"); break; }
+        if (t->exception) { report_exception(h, t, "Handler"); vm_leave(t); break; }
 
         if (have_gl) {
             Ref drawn = (Ref)vm_invoke(t, draw_frame, (uint32_t[]){view});
-            if (t->exception) { report_exception(h, t, "onDrawFrame"); break; }
+            if (t->exception) { report_exception(h, t, "onDrawFrame"); vm_leave(t); break; }
             if (drawn & 0xff) egl.swap(egl.dpy, egl.surf);
         }
-        if (ao = vm_obj(vm, act), ao->u.words[off_finished] & 0xff) break;
+        ao = vm_obj(vm, act);
+        int finished = ao->u.words[off_finished] & 0xff;
+        vm_leave(t);
+        if (finished) break;
         usleep(4000);
     }
 
+    vm_enter(t);
     call(h, t, act, "henge_focus", "(Z)V", (uint32_t[]){0}, 1);
     call(h, t, act, "henge_pause", "()V", NULL, 0);
     call(h, t, act, "henge_stop", "()V", NULL, 0);
@@ -364,6 +383,14 @@ cleanup:
         if (egl.ctx && egl.destroy_context) egl.destroy_context(egl.dpy, egl.ctx);
     }
     h->running = 0;
+    if (t) while (t->lock_depth) vm_leave(t);
+    if (vm && vm_jni_has_libraries(vm)) {
+        /* Stop the frame loop, retaining everything a native worker could still reference.
+         * There is no safe way to cancel arbitrary guest pthreads or unload their code. */
+        vm_enter(t); t->jni_detached = 1; vm_leave(t);
+        h->retained = 1;
+        return NULL;
+    }
     vm_android_log = NULL;
     vm_asset_reader = NULL;
     henge_apk_close(g_apk);
@@ -372,17 +399,28 @@ cleanup:
     for (size_t i = 0; i < ndex; i++)
         free(dex_data[i]);
     g_host = NULL;
+    atomic_store(&g_live, 0);
     return NULL;
 }
 
 vm_host *vm_host_start(const struct vm_host_opts *opts, char *err, size_t errlen)
 {
+    int expected = 0;
+    if (!atomic_compare_exchange_strong(&g_live, &expected, 1)) {
+        snprintf(err, errlen, "a VM guest is already running or retained; restart the process");
+        return NULL;
+    }
     vm_host *h = calloc(1, sizeof *h);
     if (!h) {
         snprintf(err, errlen, "out of memory");
+        atomic_store(&g_live, 0);
         return NULL;
     }
     h->opts = *opts;
+    h->window = (struct ANativeWindow){.width = opts->width, .height = opts->height, .format = 1, .layer = opts->layer};
+    if (!h->opts.window && opts->layer) h->opts.window = &h->window;
+    atomic_init(&h->width, opts->width);
+    atomic_init(&h->height, opts->height);
     atomic_init(&h->stop, 0);
     atomic_init(&h->running, 0);
     pthread_mutex_init(&h->lock, NULL);
@@ -393,10 +431,11 @@ vm_host *vm_host_start(const struct vm_host_opts *opts, char *err, size_t errlen
     int rc = pthread_create(&h->thread, &attr, host_main, h);
     pthread_attr_destroy(&attr);
     if (rc != 0) {
+        atomic_store(&g_live, 0);
         snprintf(err, errlen, "could not start the VM thread");
         pthread_mutex_destroy(&h->lock);
         pthread_cond_destroy(&h->started);
-        free(h);
+        if (!h->retained) free(h);
         return NULL;
     }
     pthread_mutex_lock(&h->lock);
@@ -407,7 +446,7 @@ vm_host *vm_host_start(const struct vm_host_opts *opts, char *err, size_t errlen
         pthread_join(h->thread, NULL);
         pthread_mutex_destroy(&h->lock);
         pthread_cond_destroy(&h->started);
-        free(h);
+        if (!h->retained) free(h);
         return NULL;
     }
     return h;
@@ -426,11 +465,17 @@ void vm_host_touch(vm_host *h, int phase, int id, float x, float y)
 
 int vm_host_running(vm_host *h) { return h->running; }
 
+void vm_host_resize(vm_host *h, int width, int height)
+{
+    atomic_store(&h->width, width);
+    atomic_store(&h->height, height);
+}
+
 void vm_host_stop(vm_host *h)
 {
     h->stop = 1;
     pthread_join(h->thread, NULL);
     pthread_mutex_destroy(&h->lock);
     pthread_cond_destroy(&h->started);
-    free(h);
+    if (!h->retained) free(h);
 }

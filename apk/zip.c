@@ -1,7 +1,13 @@
 /* ZIP container: central directory parsing and entry extraction (stored / deflate).
  * Supports ZIP64 end-of-central-directory records and extra fields. */
+#define _DARWIN_C_SOURCE
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include <zlib.h>
 
@@ -147,7 +153,12 @@ static int inflate_raw(const uint8_t *src, size_t slen, uint8_t *dst, size_t dle
     return 0;
 }
 
-int henge_apk_extract(const henge_apk *a, size_t i, uint8_t **out, size_t *size, char *err, size_t errlen) {
+static void extract_free(uint8_t *buf, size_t size, int fd) {
+    if (fd >= 0 && size) munmap(buf, size);
+    else free(buf);
+}
+
+static int extract_impl(const henge_apk *a, size_t i, int fd, uint8_t **out, size_t *size, char *err, size_t errlen) {
     *out = NULL;
     *size = 0;
     if (!a || i >= a->count) return ha_fail(err, errlen, "entry index %zu out of range", i);
@@ -168,12 +179,17 @@ int henge_apk_extract(const henge_apk *a, size_t i, uint8_t **out, size_t *size,
         return ha_fail(err, errlen, "%s: entry data extends past end of file", e->name);
     const uint8_t *src = a->data + data_off;
 
-    uint8_t *buf = malloc(e->usize ? (size_t)e->usize : 1);
+    uint8_t *buf;
+    if (fd >= 0 && e->usize) {
+        if (ftruncate(fd, (off_t)e->usize)) return ha_fail(err, errlen, "allocate extracted file: %s", strerror(errno));
+        buf = mmap(NULL, (size_t)e->usize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (buf == MAP_FAILED) buf = NULL;
+    } else buf = malloc(e->usize ? (size_t)e->usize : 1);
     if (!buf) return ha_fail(err, errlen, "out of memory");
     if (e->method == 0) {
         memcpy(buf, src, (size_t)e->usize);
     } else if (inflate_raw(src, (size_t)e->csize, buf, (size_t)e->usize, err, errlen, e->name) != 0) {
-        free(buf);
+        extract_free(buf, (size_t)e->usize, fd);
         return -1;
     }
 
@@ -184,10 +200,36 @@ int henge_apk_extract(const henge_apk *a, size_t i, uint8_t **out, size_t *size,
         off += n;
     }
     if ((uint32_t)crc != e->crc) {
-        free(buf);
+        extract_free(buf, (size_t)e->usize, fd);
         return ha_fail(err, errlen, "%s: CRC-32 mismatch", e->name);
     }
     *out = buf;
     *size = (size_t)e->usize;
     return 0;
+}
+
+int henge_apk_extract(const henge_apk *a, size_t i, uint8_t **out, size_t *size, char *err, size_t errlen) {
+    return extract_impl(a, i, -1, out, size, err, errlen);
+}
+
+int henge_apk_extract_file(const henge_apk *a, size_t i, const char *path, char *err, size_t errlen) {
+    if (!path) return ha_fail(err, errlen, "NULL extraction path");
+    char *temporary = malloc(strlen(path) + 8);
+    if (!temporary) return ha_fail(err, errlen, "out of memory");
+    sprintf(temporary, "%s.XXXXXX", path);
+    int fd = mkstemp(temporary);
+    if (fd < 0) { free(temporary); return ha_fail(err, errlen, "create extraction file: %s", strerror(errno)); }
+    fcntl(fd, F_SETFD, FD_CLOEXEC);
+    uint8_t *buf;
+    size_t size;
+    int rc = extract_impl(a, i, fd, &buf, &size, err, errlen);
+    if (rc == 0) {
+        if (size && msync(buf, size, MS_SYNC)) rc = ha_fail(err, errlen, "flush extracted file failed");
+        extract_free(buf, size, fd);
+    }
+    if (close(fd) && !rc) rc = ha_fail(err, errlen, "close extracted file failed");
+    if (!rc && rename(temporary, path)) rc = ha_fail(err, errlen, "publish extracted file: %s", strerror(errno));
+    if (rc) unlink(temporary);
+    free(temporary);
+    return rc;
 }

@@ -42,6 +42,11 @@ static void log_emit(int prio, const char *tag, const char *msg)
     fprintf(stderr, "[%s] %s\n", tag ? tag : "", msg);
 }
 
+void henge_log_message(int priority, const char *tag, const char *message)
+{
+    log_emit(priority, tag, message ? message : "");
+}
+
 /* __android_log_print is variadic: see shim_libc.c for how its arguments are recovered. */
 static int shim_log_print(int prio, const char *tag, const char *fmt, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7, double d0, double d1, double d2, double d3, double d4,

@@ -29,6 +29,13 @@ static const void *const *g_vm_ptr;
 void *hr_jni_env = &g_env_ptr;
 void *hr_jni_vm = &g_vm_ptr;
 
+/* VM-independent binding: the runtime archive can still be used without henge-vm. */
+void henge_jni_bind(void *vm, void *env)
+{
+    hr_jni_vm = vm ? vm : &g_vm_ptr;
+    hr_jni_env = env ? env : &g_env_ptr;
+}
+
 static int32_t vm_get_env(void *vm, void **penv, int32_t version)
 {
     (void)vm;

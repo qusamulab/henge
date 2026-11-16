@@ -39,8 +39,11 @@ struct henge_image {
     const Elf64_Phdr *phdr;
     uint16_t phnum;
     uintptr_t end;        /* base + end of the last PT_LOAD */
-    struct henge_image **deps; /* linked DT_NEEDED images (shim-backed ones are not listed) */
+    struct henge_image **deps; /* DT_NEEDED order; NULL entries represent the system shim */
     size_t ndeps;
+    int global;          /* DF_1_GLOBAL or promoted by Android RTLD_GLOBAL */
+    const struct henge_island_hdr *island;
+    uintptr_t macho_base;
     struct henge_image *next;
 };
 
@@ -55,6 +58,8 @@ henge_image *hr_load_locked(const char *name, char *err, size_t errlen);
 int hr_is_system_lib(const char *name);
 /* The linked image containing addr, or NULL. */
 henge_image *hr_image_for_addr(uintptr_t addr);
+void hr_crash_register(const henge_image *image);
+void hr_crash_missing(const char *name);
 
 /* Formats a message into err (if non-NULL) and returns -1. */
 int hr_fail(char *err, size_t errlen, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
@@ -67,6 +72,11 @@ uint64_t hr_symbol_count(const henge_image *im);
 uintptr_t hr_sym_addr(const henge_image *im, const Elf64_Sym *s);
 /* Global lookup for an undefined symbol: shim first, then linked images. Returns 1 if found. */
 int hr_resolve_global(const char *name, uintptr_t *out);
+/* Global group, then root and its DT_NEEDED closure in breadth-first order.
+ * NULL dependency entries stand for the system shim, in DT_NEEDED order.
+ * Returns 1 found, 0 missing, -1 allocation failure. */
+int hr_resolve_scope(henge_image *root, const char *name, int globals,
+                     henge_image **owner, const Elf64_Sym **sym, uintptr_t *addr);
 
 /* thread.c */
 struct hr_tls_module;

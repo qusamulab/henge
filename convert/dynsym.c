@@ -65,6 +65,7 @@ int hc_elf_symbols(const struct elf_info *e, int defined, struct henge_symbol **
         Elf64_Sym s;
         memcpy(&s, e->data + off + i * sizeof s, sizeof s);
         unsigned bind = ELF64_ST_BIND(s.st_info);
+        if (defined && ((s.st_other & 3) == 1 || (s.st_other & 3) == 2)) continue;
         if ((s.st_shndx != SHN_UNDEF) != (defined != 0) || (bind != STB_GLOBAL && bind != STB_WEAK) ||
             s.st_name == 0 || s.st_name >= e->strsz)
             continue;
@@ -80,7 +81,7 @@ int hc_elf_symbols(const struct elf_info *e, int defined, struct henge_symbol **
         if (!copy) goto oom;
         memcpy(copy, name, len);
         copy[len] = 0;
-        imp[count++] = (struct henge_symbol){copy, bind == STB_WEAK};
+        imp[count++] = (struct henge_symbol){copy, bind == STB_WEAK, ELF64_ST_TYPE(s.st_info)};
     }
     *out = imp;
     *n = count;

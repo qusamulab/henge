@@ -1,0 +1,4503 @@
+{
+  "source": "https://github.com/KhronosGroup/OpenGL-Registry/blob/main/xml/gl.xml",
+  "sha256": "b9ca2cfa5c676e901c20d34af3407f1687cde0f1336a5ff7a8974d04c7494ad3",
+  "license": "Apache-2.0; Copyright 2013-2026 The Khronos Group Inc.",
+  "commands": [
+    {
+      "name": "glActiveTexture",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "texture"
+        ]
+      ]
+    },
+    {
+      "name": "glAttachShader",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLuint",
+          "shader"
+        ]
+      ]
+    },
+    {
+      "name": "glBeginQuery",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLuint",
+          "id"
+        ]
+      ]
+    },
+    {
+      "name": "glBeginTransformFeedback",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "primitiveMode"
+        ]
+      ]
+    },
+    {
+      "name": "glBindAttribLocation",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "const GLchar *",
+          "name"
+        ]
+      ]
+    },
+    {
+      "name": "glBindBuffer",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLuint",
+          "buffer"
+        ]
+      ]
+    },
+    {
+      "name": "glBindBufferBase",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLuint",
+          "buffer"
+        ]
+      ]
+    },
+    {
+      "name": "glBindBufferRange",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLuint",
+          "buffer"
+        ],
+        [
+          "GLintptr",
+          "offset"
+        ],
+        [
+          "GLsizeiptr",
+          "size"
+        ]
+      ]
+    },
+    {
+      "name": "glBindFramebuffer",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLuint",
+          "framebuffer"
+        ]
+      ]
+    },
+    {
+      "name": "glBindRenderbuffer",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLuint",
+          "renderbuffer"
+        ]
+      ]
+    },
+    {
+      "name": "glBindSampler",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "unit"
+        ],
+        [
+          "GLuint",
+          "sampler"
+        ]
+      ]
+    },
+    {
+      "name": "glBindTexture",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLuint",
+          "texture"
+        ]
+      ]
+    },
+    {
+      "name": "glBindTransformFeedback",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLuint",
+          "id"
+        ]
+      ]
+    },
+    {
+      "name": "glBindVertexArray",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "array"
+        ]
+      ]
+    },
+    {
+      "name": "glBlendColor",
+      "result": "void",
+      "params": [
+        [
+          "GLfloat",
+          "red"
+        ],
+        [
+          "GLfloat",
+          "green"
+        ],
+        [
+          "GLfloat",
+          "blue"
+        ],
+        [
+          "GLfloat",
+          "alpha"
+        ]
+      ]
+    },
+    {
+      "name": "glBlendEquation",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "mode"
+        ]
+      ]
+    },
+    {
+      "name": "glBlendEquationSeparate",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "modeRGB"
+        ],
+        [
+          "GLenum",
+          "modeAlpha"
+        ]
+      ]
+    },
+    {
+      "name": "glBlendFunc",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "sfactor"
+        ],
+        [
+          "GLenum",
+          "dfactor"
+        ]
+      ]
+    },
+    {
+      "name": "glBlendFuncSeparate",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "sfactorRGB"
+        ],
+        [
+          "GLenum",
+          "dfactorRGB"
+        ],
+        [
+          "GLenum",
+          "sfactorAlpha"
+        ],
+        [
+          "GLenum",
+          "dfactorAlpha"
+        ]
+      ]
+    },
+    {
+      "name": "glBlitFramebuffer",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "srcX0"
+        ],
+        [
+          "GLint",
+          "srcY0"
+        ],
+        [
+          "GLint",
+          "srcX1"
+        ],
+        [
+          "GLint",
+          "srcY1"
+        ],
+        [
+          "GLint",
+          "dstX0"
+        ],
+        [
+          "GLint",
+          "dstY0"
+        ],
+        [
+          "GLint",
+          "dstX1"
+        ],
+        [
+          "GLint",
+          "dstY1"
+        ],
+        [
+          "GLbitfield",
+          "mask"
+        ],
+        [
+          "GLenum",
+          "filter"
+        ]
+      ]
+    },
+    {
+      "name": "glBufferData",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLsizeiptr",
+          "size"
+        ],
+        [
+          "const void *",
+          "data"
+        ],
+        [
+          "GLenum",
+          "usage"
+        ]
+      ]
+    },
+    {
+      "name": "glBufferSubData",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLintptr",
+          "offset"
+        ],
+        [
+          "GLsizeiptr",
+          "size"
+        ],
+        [
+          "const void *",
+          "data"
+        ]
+      ]
+    },
+    {
+      "name": "glCheckFramebufferStatus",
+      "result": "GLenum",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ]
+      ]
+    },
+    {
+      "name": "glClear",
+      "result": "void",
+      "params": [
+        [
+          "GLbitfield",
+          "mask"
+        ]
+      ]
+    },
+    {
+      "name": "glClearBufferfi",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "buffer"
+        ],
+        [
+          "GLint",
+          "drawbuffer"
+        ],
+        [
+          "GLfloat",
+          "depth"
+        ],
+        [
+          "GLint",
+          "stencil"
+        ]
+      ]
+    },
+    {
+      "name": "glClearBufferfv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "buffer"
+        ],
+        [
+          "GLint",
+          "drawbuffer"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glClearBufferiv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "buffer"
+        ],
+        [
+          "GLint",
+          "drawbuffer"
+        ],
+        [
+          "const GLint *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glClearBufferuiv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "buffer"
+        ],
+        [
+          "GLint",
+          "drawbuffer"
+        ],
+        [
+          "const GLuint *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glClearColor",
+      "result": "void",
+      "params": [
+        [
+          "GLfloat",
+          "red"
+        ],
+        [
+          "GLfloat",
+          "green"
+        ],
+        [
+          "GLfloat",
+          "blue"
+        ],
+        [
+          "GLfloat",
+          "alpha"
+        ]
+      ]
+    },
+    {
+      "name": "glClearDepthf",
+      "result": "void",
+      "params": [
+        [
+          "GLfloat",
+          "d"
+        ]
+      ]
+    },
+    {
+      "name": "glClearStencil",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "s"
+        ]
+      ]
+    },
+    {
+      "name": "glClientWaitSync",
+      "result": "GLenum",
+      "params": [
+        [
+          "GLsync",
+          "sync"
+        ],
+        [
+          "GLbitfield",
+          "flags"
+        ],
+        [
+          "GLuint64",
+          "timeout"
+        ]
+      ]
+    },
+    {
+      "name": "glColorMask",
+      "result": "void",
+      "params": [
+        [
+          "GLboolean",
+          "red"
+        ],
+        [
+          "GLboolean",
+          "green"
+        ],
+        [
+          "GLboolean",
+          "blue"
+        ],
+        [
+          "GLboolean",
+          "alpha"
+        ]
+      ]
+    },
+    {
+      "name": "glCompileShader",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "shader"
+        ]
+      ]
+    },
+    {
+      "name": "glCompressedTexImage2D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLenum",
+          "internalformat"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ],
+        [
+          "GLint",
+          "border"
+        ],
+        [
+          "GLsizei",
+          "imageSize"
+        ],
+        [
+          "const void *",
+          "data"
+        ]
+      ]
+    },
+    {
+      "name": "glCompressedTexImage3D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLenum",
+          "internalformat"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ],
+        [
+          "GLsizei",
+          "depth"
+        ],
+        [
+          "GLint",
+          "border"
+        ],
+        [
+          "GLsizei",
+          "imageSize"
+        ],
+        [
+          "const void *",
+          "data"
+        ]
+      ]
+    },
+    {
+      "name": "glCompressedTexSubImage2D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLint",
+          "xoffset"
+        ],
+        [
+          "GLint",
+          "yoffset"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ],
+        [
+          "GLenum",
+          "format"
+        ],
+        [
+          "GLsizei",
+          "imageSize"
+        ],
+        [
+          "const void *",
+          "data"
+        ]
+      ]
+    },
+    {
+      "name": "glCompressedTexSubImage3D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLint",
+          "xoffset"
+        ],
+        [
+          "GLint",
+          "yoffset"
+        ],
+        [
+          "GLint",
+          "zoffset"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ],
+        [
+          "GLsizei",
+          "depth"
+        ],
+        [
+          "GLenum",
+          "format"
+        ],
+        [
+          "GLsizei",
+          "imageSize"
+        ],
+        [
+          "const void *",
+          "data"
+        ]
+      ]
+    },
+    {
+      "name": "glCopyBufferSubData",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "readTarget"
+        ],
+        [
+          "GLenum",
+          "writeTarget"
+        ],
+        [
+          "GLintptr",
+          "readOffset"
+        ],
+        [
+          "GLintptr",
+          "writeOffset"
+        ],
+        [
+          "GLsizeiptr",
+          "size"
+        ]
+      ]
+    },
+    {
+      "name": "glCopyTexImage2D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLenum",
+          "internalformat"
+        ],
+        [
+          "GLint",
+          "x"
+        ],
+        [
+          "GLint",
+          "y"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ],
+        [
+          "GLint",
+          "border"
+        ]
+      ]
+    },
+    {
+      "name": "glCopyTexSubImage2D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLint",
+          "xoffset"
+        ],
+        [
+          "GLint",
+          "yoffset"
+        ],
+        [
+          "GLint",
+          "x"
+        ],
+        [
+          "GLint",
+          "y"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ]
+      ]
+    },
+    {
+      "name": "glCopyTexSubImage3D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLint",
+          "xoffset"
+        ],
+        [
+          "GLint",
+          "yoffset"
+        ],
+        [
+          "GLint",
+          "zoffset"
+        ],
+        [
+          "GLint",
+          "x"
+        ],
+        [
+          "GLint",
+          "y"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ]
+      ]
+    },
+    {
+      "name": "glCreateProgram",
+      "result": "GLuint",
+      "params": []
+    },
+    {
+      "name": "glCreateShader",
+      "result": "GLuint",
+      "params": [
+        [
+          "GLenum",
+          "type"
+        ]
+      ]
+    },
+    {
+      "name": "glCullFace",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "mode"
+        ]
+      ]
+    },
+    {
+      "name": "glDeleteBuffers",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "const GLuint *",
+          "buffers"
+        ]
+      ]
+    },
+    {
+      "name": "glDeleteFramebuffers",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "const GLuint *",
+          "framebuffers"
+        ]
+      ]
+    },
+    {
+      "name": "glDeleteProgram",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ]
+      ]
+    },
+    {
+      "name": "glDeleteQueries",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "const GLuint *",
+          "ids"
+        ]
+      ]
+    },
+    {
+      "name": "glDeleteRenderbuffers",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "const GLuint *",
+          "renderbuffers"
+        ]
+      ]
+    },
+    {
+      "name": "glDeleteSamplers",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLuint *",
+          "samplers"
+        ]
+      ]
+    },
+    {
+      "name": "glDeleteShader",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "shader"
+        ]
+      ]
+    },
+    {
+      "name": "glDeleteSync",
+      "result": "void",
+      "params": [
+        [
+          "GLsync",
+          "sync"
+        ]
+      ]
+    },
+    {
+      "name": "glDeleteTextures",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "const GLuint *",
+          "textures"
+        ]
+      ]
+    },
+    {
+      "name": "glDeleteTransformFeedbacks",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "const GLuint *",
+          "ids"
+        ]
+      ]
+    },
+    {
+      "name": "glDeleteVertexArrays",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "const GLuint *",
+          "arrays"
+        ]
+      ]
+    },
+    {
+      "name": "glDepthFunc",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "func"
+        ]
+      ]
+    },
+    {
+      "name": "glDepthMask",
+      "result": "void",
+      "params": [
+        [
+          "GLboolean",
+          "flag"
+        ]
+      ]
+    },
+    {
+      "name": "glDepthRangef",
+      "result": "void",
+      "params": [
+        [
+          "GLfloat",
+          "n"
+        ],
+        [
+          "GLfloat",
+          "f"
+        ]
+      ]
+    },
+    {
+      "name": "glDetachShader",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLuint",
+          "shader"
+        ]
+      ]
+    },
+    {
+      "name": "glDisable",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "cap"
+        ]
+      ]
+    },
+    {
+      "name": "glDisableVertexAttribArray",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ]
+      ]
+    },
+    {
+      "name": "glDrawArrays",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "mode"
+        ],
+        [
+          "GLint",
+          "first"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ]
+      ]
+    },
+    {
+      "name": "glDrawArraysInstanced",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "mode"
+        ],
+        [
+          "GLint",
+          "first"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLsizei",
+          "instancecount"
+        ]
+      ]
+    },
+    {
+      "name": "glDrawBuffers",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "const GLenum *",
+          "bufs"
+        ]
+      ]
+    },
+    {
+      "name": "glDrawElements",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "mode"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLenum",
+          "type"
+        ],
+        [
+          "const void *",
+          "indices"
+        ]
+      ]
+    },
+    {
+      "name": "glDrawElementsInstanced",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "mode"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLenum",
+          "type"
+        ],
+        [
+          "const void *",
+          "indices"
+        ],
+        [
+          "GLsizei",
+          "instancecount"
+        ]
+      ]
+    },
+    {
+      "name": "glDrawRangeElements",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "mode"
+        ],
+        [
+          "GLuint",
+          "start"
+        ],
+        [
+          "GLuint",
+          "end"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLenum",
+          "type"
+        ],
+        [
+          "const void *",
+          "indices"
+        ]
+      ]
+    },
+    {
+      "name": "glEnable",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "cap"
+        ]
+      ]
+    },
+    {
+      "name": "glEnableVertexAttribArray",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ]
+      ]
+    },
+    {
+      "name": "glEndQuery",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ]
+      ]
+    },
+    {
+      "name": "glEndTransformFeedback",
+      "result": "void",
+      "params": []
+    },
+    {
+      "name": "glFenceSync",
+      "result": "GLsync",
+      "params": [
+        [
+          "GLenum",
+          "condition"
+        ],
+        [
+          "GLbitfield",
+          "flags"
+        ]
+      ]
+    },
+    {
+      "name": "glFinish",
+      "result": "void",
+      "params": []
+    },
+    {
+      "name": "glFlush",
+      "result": "void",
+      "params": []
+    },
+    {
+      "name": "glFlushMappedBufferRange",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLintptr",
+          "offset"
+        ],
+        [
+          "GLsizeiptr",
+          "length"
+        ]
+      ]
+    },
+    {
+      "name": "glFramebufferRenderbuffer",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "attachment"
+        ],
+        [
+          "GLenum",
+          "renderbuffertarget"
+        ],
+        [
+          "GLuint",
+          "renderbuffer"
+        ]
+      ]
+    },
+    {
+      "name": "glFramebufferTexture2D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "attachment"
+        ],
+        [
+          "GLenum",
+          "textarget"
+        ],
+        [
+          "GLuint",
+          "texture"
+        ],
+        [
+          "GLint",
+          "level"
+        ]
+      ]
+    },
+    {
+      "name": "glFramebufferTextureLayer",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "attachment"
+        ],
+        [
+          "GLuint",
+          "texture"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLint",
+          "layer"
+        ]
+      ]
+    },
+    {
+      "name": "glFrontFace",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "mode"
+        ]
+      ]
+    },
+    {
+      "name": "glGenBuffers",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "GLuint *",
+          "buffers"
+        ]
+      ]
+    },
+    {
+      "name": "glGenFramebuffers",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "GLuint *",
+          "framebuffers"
+        ]
+      ]
+    },
+    {
+      "name": "glGenQueries",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "GLuint *",
+          "ids"
+        ]
+      ]
+    },
+    {
+      "name": "glGenRenderbuffers",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "GLuint *",
+          "renderbuffers"
+        ]
+      ]
+    },
+    {
+      "name": "glGenSamplers",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLuint *",
+          "samplers"
+        ]
+      ]
+    },
+    {
+      "name": "glGenTextures",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "GLuint *",
+          "textures"
+        ]
+      ]
+    },
+    {
+      "name": "glGenTransformFeedbacks",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "GLuint *",
+          "ids"
+        ]
+      ]
+    },
+    {
+      "name": "glGenVertexArrays",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "n"
+        ],
+        [
+          "GLuint *",
+          "arrays"
+        ]
+      ]
+    },
+    {
+      "name": "glGenerateMipmap",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ]
+      ]
+    },
+    {
+      "name": "glGetActiveAttrib",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLsizei",
+          "bufSize"
+        ],
+        [
+          "GLsizei *",
+          "length"
+        ],
+        [
+          "GLint *",
+          "size"
+        ],
+        [
+          "GLenum *",
+          "type"
+        ],
+        [
+          "GLchar *",
+          "name"
+        ]
+      ]
+    },
+    {
+      "name": "glGetActiveUniform",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLsizei",
+          "bufSize"
+        ],
+        [
+          "GLsizei *",
+          "length"
+        ],
+        [
+          "GLint *",
+          "size"
+        ],
+        [
+          "GLenum *",
+          "type"
+        ],
+        [
+          "GLchar *",
+          "name"
+        ]
+      ]
+    },
+    {
+      "name": "glGetActiveUniformBlockName",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLuint",
+          "uniformBlockIndex"
+        ],
+        [
+          "GLsizei",
+          "bufSize"
+        ],
+        [
+          "GLsizei *",
+          "length"
+        ],
+        [
+          "GLchar *",
+          "uniformBlockName"
+        ]
+      ]
+    },
+    {
+      "name": "glGetActiveUniformBlockiv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLuint",
+          "uniformBlockIndex"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetActiveUniformsiv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLsizei",
+          "uniformCount"
+        ],
+        [
+          "const GLuint *",
+          "uniformIndices"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetAttachedShaders",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLsizei",
+          "maxCount"
+        ],
+        [
+          "GLsizei *",
+          "count"
+        ],
+        [
+          "GLuint *",
+          "shaders"
+        ]
+      ]
+    },
+    {
+      "name": "glGetAttribLocation",
+      "result": "GLint",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "const GLchar *",
+          "name"
+        ]
+      ]
+    },
+    {
+      "name": "glGetBooleanv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLboolean *",
+          "data"
+        ]
+      ]
+    },
+    {
+      "name": "glGetBufferParameteri64v",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint64 *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetBufferParameteriv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetBufferPointerv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "void **",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetError",
+      "result": "GLenum",
+      "params": []
+    },
+    {
+      "name": "glGetFloatv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLfloat *",
+          "data"
+        ]
+      ]
+    },
+    {
+      "name": "glGetFragDataLocation",
+      "result": "GLint",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "const GLchar *",
+          "name"
+        ]
+      ]
+    },
+    {
+      "name": "glGetFramebufferAttachmentParameteriv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "attachment"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetInteger64i_v",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLint64 *",
+          "data"
+        ]
+      ]
+    },
+    {
+      "name": "glGetInteger64v",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint64 *",
+          "data"
+        ]
+      ]
+    },
+    {
+      "name": "glGetIntegeri_v",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLint *",
+          "data"
+        ]
+      ]
+    },
+    {
+      "name": "glGetIntegerv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "data"
+        ]
+      ]
+    },
+    {
+      "name": "glGetInternalformativ",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "internalformat"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetProgramBinary",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLsizei",
+          "bufSize"
+        ],
+        [
+          "GLsizei *",
+          "length"
+        ],
+        [
+          "GLenum *",
+          "binaryFormat"
+        ],
+        [
+          "void *",
+          "binary"
+        ]
+      ]
+    },
+    {
+      "name": "glGetProgramInfoLog",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLsizei",
+          "bufSize"
+        ],
+        [
+          "GLsizei *",
+          "length"
+        ],
+        [
+          "GLchar *",
+          "infoLog"
+        ]
+      ]
+    },
+    {
+      "name": "glGetProgramiv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetQueryObjectuiv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "id"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLuint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetQueryiv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetRenderbufferParameteriv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetSamplerParameterfv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "sampler"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLfloat *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetSamplerParameteriv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "sampler"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetShaderInfoLog",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "shader"
+        ],
+        [
+          "GLsizei",
+          "bufSize"
+        ],
+        [
+          "GLsizei *",
+          "length"
+        ],
+        [
+          "GLchar *",
+          "infoLog"
+        ]
+      ]
+    },
+    {
+      "name": "glGetShaderPrecisionFormat",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "shadertype"
+        ],
+        [
+          "GLenum",
+          "precisiontype"
+        ],
+        [
+          "GLint *",
+          "range"
+        ],
+        [
+          "GLint *",
+          "precision"
+        ]
+      ]
+    },
+    {
+      "name": "glGetShaderSource",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "shader"
+        ],
+        [
+          "GLsizei",
+          "bufSize"
+        ],
+        [
+          "GLsizei *",
+          "length"
+        ],
+        [
+          "GLchar *",
+          "source"
+        ]
+      ]
+    },
+    {
+      "name": "glGetShaderiv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "shader"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetString",
+      "result": "const GLubyte *",
+      "params": [
+        [
+          "GLenum",
+          "name"
+        ]
+      ]
+    },
+    {
+      "name": "glGetStringi",
+      "result": "const GLubyte *",
+      "params": [
+        [
+          "GLenum",
+          "name"
+        ],
+        [
+          "GLuint",
+          "index"
+        ]
+      ]
+    },
+    {
+      "name": "glGetSynciv",
+      "result": "void",
+      "params": [
+        [
+          "GLsync",
+          "sync"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLsizei *",
+          "length"
+        ],
+        [
+          "GLint *",
+          "values"
+        ]
+      ]
+    },
+    {
+      "name": "glGetTexParameterfv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLfloat *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetTexParameteriv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetTransformFeedbackVarying",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLsizei",
+          "bufSize"
+        ],
+        [
+          "GLsizei *",
+          "length"
+        ],
+        [
+          "GLsizei *",
+          "size"
+        ],
+        [
+          "GLenum *",
+          "type"
+        ],
+        [
+          "GLchar *",
+          "name"
+        ]
+      ]
+    },
+    {
+      "name": "glGetUniformBlockIndex",
+      "result": "GLuint",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "const GLchar *",
+          "uniformBlockName"
+        ]
+      ]
+    },
+    {
+      "name": "glGetUniformIndices",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLsizei",
+          "uniformCount"
+        ],
+        [
+          "const GLchar *const*",
+          "uniformNames"
+        ],
+        [
+          "GLuint *",
+          "uniformIndices"
+        ]
+      ]
+    },
+    {
+      "name": "glGetUniformLocation",
+      "result": "GLint",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "const GLchar *",
+          "name"
+        ]
+      ]
+    },
+    {
+      "name": "glGetUniformfv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLfloat *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetUniformiv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetUniformuiv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLuint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetVertexAttribIiv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetVertexAttribIuiv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLuint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetVertexAttribPointerv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "void **",
+          "pointer"
+        ]
+      ]
+    },
+    {
+      "name": "glGetVertexAttribfv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLfloat *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glGetVertexAttribiv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glHint",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "mode"
+        ]
+      ]
+    },
+    {
+      "name": "glInvalidateFramebuffer",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLsizei",
+          "numAttachments"
+        ],
+        [
+          "const GLenum *",
+          "attachments"
+        ]
+      ]
+    },
+    {
+      "name": "glInvalidateSubFramebuffer",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLsizei",
+          "numAttachments"
+        ],
+        [
+          "const GLenum *",
+          "attachments"
+        ],
+        [
+          "GLint",
+          "x"
+        ],
+        [
+          "GLint",
+          "y"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ]
+      ]
+    },
+    {
+      "name": "glIsBuffer",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLuint",
+          "buffer"
+        ]
+      ]
+    },
+    {
+      "name": "glIsEnabled",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLenum",
+          "cap"
+        ]
+      ]
+    },
+    {
+      "name": "glIsFramebuffer",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLuint",
+          "framebuffer"
+        ]
+      ]
+    },
+    {
+      "name": "glIsProgram",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ]
+      ]
+    },
+    {
+      "name": "glIsQuery",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLuint",
+          "id"
+        ]
+      ]
+    },
+    {
+      "name": "glIsRenderbuffer",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLuint",
+          "renderbuffer"
+        ]
+      ]
+    },
+    {
+      "name": "glIsSampler",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLuint",
+          "sampler"
+        ]
+      ]
+    },
+    {
+      "name": "glIsShader",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLuint",
+          "shader"
+        ]
+      ]
+    },
+    {
+      "name": "glIsSync",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLsync",
+          "sync"
+        ]
+      ]
+    },
+    {
+      "name": "glIsTexture",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLuint",
+          "texture"
+        ]
+      ]
+    },
+    {
+      "name": "glIsTransformFeedback",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLuint",
+          "id"
+        ]
+      ]
+    },
+    {
+      "name": "glIsVertexArray",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLuint",
+          "array"
+        ]
+      ]
+    },
+    {
+      "name": "glLineWidth",
+      "result": "void",
+      "params": [
+        [
+          "GLfloat",
+          "width"
+        ]
+      ]
+    },
+    {
+      "name": "glLinkProgram",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ]
+      ]
+    },
+    {
+      "name": "glMapBufferRange",
+      "result": "void *",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLintptr",
+          "offset"
+        ],
+        [
+          "GLsizeiptr",
+          "length"
+        ],
+        [
+          "GLbitfield",
+          "access"
+        ]
+      ]
+    },
+    {
+      "name": "glPauseTransformFeedback",
+      "result": "void",
+      "params": []
+    },
+    {
+      "name": "glPixelStorei",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint",
+          "param"
+        ]
+      ]
+    },
+    {
+      "name": "glPolygonOffset",
+      "result": "void",
+      "params": [
+        [
+          "GLfloat",
+          "factor"
+        ],
+        [
+          "GLfloat",
+          "units"
+        ]
+      ]
+    },
+    {
+      "name": "glProgramBinary",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLenum",
+          "binaryFormat"
+        ],
+        [
+          "const void *",
+          "binary"
+        ],
+        [
+          "GLsizei",
+          "length"
+        ]
+      ]
+    },
+    {
+      "name": "glProgramParameteri",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glReadBuffer",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "src"
+        ]
+      ]
+    },
+    {
+      "name": "glReadPixels",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "x"
+        ],
+        [
+          "GLint",
+          "y"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ],
+        [
+          "GLenum",
+          "format"
+        ],
+        [
+          "GLenum",
+          "type"
+        ],
+        [
+          "void *",
+          "pixels"
+        ]
+      ]
+    },
+    {
+      "name": "glReleaseShaderCompiler",
+      "result": "void",
+      "params": []
+    },
+    {
+      "name": "glRenderbufferStorage",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "internalformat"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ]
+      ]
+    },
+    {
+      "name": "glRenderbufferStorageMultisample",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLsizei",
+          "samples"
+        ],
+        [
+          "GLenum",
+          "internalformat"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ]
+      ]
+    },
+    {
+      "name": "glResumeTransformFeedback",
+      "result": "void",
+      "params": []
+    },
+    {
+      "name": "glSampleCoverage",
+      "result": "void",
+      "params": [
+        [
+          "GLfloat",
+          "value"
+        ],
+        [
+          "GLboolean",
+          "invert"
+        ]
+      ]
+    },
+    {
+      "name": "glSamplerParameterf",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "sampler"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLfloat",
+          "param"
+        ]
+      ]
+    },
+    {
+      "name": "glSamplerParameterfv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "sampler"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "const GLfloat *",
+          "param"
+        ]
+      ]
+    },
+    {
+      "name": "glSamplerParameteri",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "sampler"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint",
+          "param"
+        ]
+      ]
+    },
+    {
+      "name": "glSamplerParameteriv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "sampler"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "const GLint *",
+          "param"
+        ]
+      ]
+    },
+    {
+      "name": "glScissor",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "x"
+        ],
+        [
+          "GLint",
+          "y"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ]
+      ]
+    },
+    {
+      "name": "glShaderBinary",
+      "result": "void",
+      "params": [
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLuint *",
+          "shaders"
+        ],
+        [
+          "GLenum",
+          "binaryFormat"
+        ],
+        [
+          "const void *",
+          "binary"
+        ],
+        [
+          "GLsizei",
+          "length"
+        ]
+      ]
+    },
+    {
+      "name": "glShaderSource",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "shader"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLchar *const*",
+          "string"
+        ],
+        [
+          "const GLint *",
+          "length"
+        ]
+      ]
+    },
+    {
+      "name": "glStencilFunc",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "func"
+        ],
+        [
+          "GLint",
+          "ref"
+        ],
+        [
+          "GLuint",
+          "mask"
+        ]
+      ]
+    },
+    {
+      "name": "glStencilFuncSeparate",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "face"
+        ],
+        [
+          "GLenum",
+          "func"
+        ],
+        [
+          "GLint",
+          "ref"
+        ],
+        [
+          "GLuint",
+          "mask"
+        ]
+      ]
+    },
+    {
+      "name": "glStencilMask",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "mask"
+        ]
+      ]
+    },
+    {
+      "name": "glStencilMaskSeparate",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "face"
+        ],
+        [
+          "GLuint",
+          "mask"
+        ]
+      ]
+    },
+    {
+      "name": "glStencilOp",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "fail"
+        ],
+        [
+          "GLenum",
+          "zfail"
+        ],
+        [
+          "GLenum",
+          "zpass"
+        ]
+      ]
+    },
+    {
+      "name": "glStencilOpSeparate",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "face"
+        ],
+        [
+          "GLenum",
+          "sfail"
+        ],
+        [
+          "GLenum",
+          "dpfail"
+        ],
+        [
+          "GLenum",
+          "dppass"
+        ]
+      ]
+    },
+    {
+      "name": "glTexImage2D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLint",
+          "internalformat"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ],
+        [
+          "GLint",
+          "border"
+        ],
+        [
+          "GLenum",
+          "format"
+        ],
+        [
+          "GLenum",
+          "type"
+        ],
+        [
+          "const void *",
+          "pixels"
+        ]
+      ]
+    },
+    {
+      "name": "glTexImage3D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLint",
+          "internalformat"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ],
+        [
+          "GLsizei",
+          "depth"
+        ],
+        [
+          "GLint",
+          "border"
+        ],
+        [
+          "GLenum",
+          "format"
+        ],
+        [
+          "GLenum",
+          "type"
+        ],
+        [
+          "const void *",
+          "pixels"
+        ]
+      ]
+    },
+    {
+      "name": "glTexParameterf",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLfloat",
+          "param"
+        ]
+      ]
+    },
+    {
+      "name": "glTexParameterfv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "const GLfloat *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glTexParameteri",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "GLint",
+          "param"
+        ]
+      ]
+    },
+    {
+      "name": "glTexParameteriv",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLenum",
+          "pname"
+        ],
+        [
+          "const GLint *",
+          "params"
+        ]
+      ]
+    },
+    {
+      "name": "glTexStorage2D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLsizei",
+          "levels"
+        ],
+        [
+          "GLenum",
+          "internalformat"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ]
+      ]
+    },
+    {
+      "name": "glTexStorage3D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLsizei",
+          "levels"
+        ],
+        [
+          "GLenum",
+          "internalformat"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ],
+        [
+          "GLsizei",
+          "depth"
+        ]
+      ]
+    },
+    {
+      "name": "glTexSubImage2D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLint",
+          "xoffset"
+        ],
+        [
+          "GLint",
+          "yoffset"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ],
+        [
+          "GLenum",
+          "format"
+        ],
+        [
+          "GLenum",
+          "type"
+        ],
+        [
+          "const void *",
+          "pixels"
+        ]
+      ]
+    },
+    {
+      "name": "glTexSubImage3D",
+      "result": "void",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ],
+        [
+          "GLint",
+          "level"
+        ],
+        [
+          "GLint",
+          "xoffset"
+        ],
+        [
+          "GLint",
+          "yoffset"
+        ],
+        [
+          "GLint",
+          "zoffset"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ],
+        [
+          "GLsizei",
+          "depth"
+        ],
+        [
+          "GLenum",
+          "format"
+        ],
+        [
+          "GLenum",
+          "type"
+        ],
+        [
+          "const void *",
+          "pixels"
+        ]
+      ]
+    },
+    {
+      "name": "glTransformFeedbackVaryings",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLchar *const*",
+          "varyings"
+        ],
+        [
+          "GLenum",
+          "bufferMode"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform1f",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLfloat",
+          "v0"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform1fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform1i",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLint",
+          "v0"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform1iv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLint *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform1ui",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLuint",
+          "v0"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform1uiv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLuint *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform2f",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLfloat",
+          "v0"
+        ],
+        [
+          "GLfloat",
+          "v1"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform2fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform2i",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLint",
+          "v0"
+        ],
+        [
+          "GLint",
+          "v1"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform2iv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLint *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform2ui",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLuint",
+          "v0"
+        ],
+        [
+          "GLuint",
+          "v1"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform2uiv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLuint *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform3f",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLfloat",
+          "v0"
+        ],
+        [
+          "GLfloat",
+          "v1"
+        ],
+        [
+          "GLfloat",
+          "v2"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform3fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform3i",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLint",
+          "v0"
+        ],
+        [
+          "GLint",
+          "v1"
+        ],
+        [
+          "GLint",
+          "v2"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform3iv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLint *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform3ui",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLuint",
+          "v0"
+        ],
+        [
+          "GLuint",
+          "v1"
+        ],
+        [
+          "GLuint",
+          "v2"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform3uiv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLuint *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform4f",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLfloat",
+          "v0"
+        ],
+        [
+          "GLfloat",
+          "v1"
+        ],
+        [
+          "GLfloat",
+          "v2"
+        ],
+        [
+          "GLfloat",
+          "v3"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform4fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform4i",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLint",
+          "v0"
+        ],
+        [
+          "GLint",
+          "v1"
+        ],
+        [
+          "GLint",
+          "v2"
+        ],
+        [
+          "GLint",
+          "v3"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform4iv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLint *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform4ui",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLuint",
+          "v0"
+        ],
+        [
+          "GLuint",
+          "v1"
+        ],
+        [
+          "GLuint",
+          "v2"
+        ],
+        [
+          "GLuint",
+          "v3"
+        ]
+      ]
+    },
+    {
+      "name": "glUniform4uiv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "const GLuint *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniformBlockBinding",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ],
+        [
+          "GLuint",
+          "uniformBlockIndex"
+        ],
+        [
+          "GLuint",
+          "uniformBlockBinding"
+        ]
+      ]
+    },
+    {
+      "name": "glUniformMatrix2fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLboolean",
+          "transpose"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniformMatrix2x3fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLboolean",
+          "transpose"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniformMatrix2x4fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLboolean",
+          "transpose"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniformMatrix3fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLboolean",
+          "transpose"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniformMatrix3x2fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLboolean",
+          "transpose"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniformMatrix3x4fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLboolean",
+          "transpose"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniformMatrix4fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLboolean",
+          "transpose"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniformMatrix4x2fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLboolean",
+          "transpose"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUniformMatrix4x3fv",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "location"
+        ],
+        [
+          "GLsizei",
+          "count"
+        ],
+        [
+          "GLboolean",
+          "transpose"
+        ],
+        [
+          "const GLfloat *",
+          "value"
+        ]
+      ]
+    },
+    {
+      "name": "glUnmapBuffer",
+      "result": "GLboolean",
+      "params": [
+        [
+          "GLenum",
+          "target"
+        ]
+      ]
+    },
+    {
+      "name": "glUseProgram",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ]
+      ]
+    },
+    {
+      "name": "glValidateProgram",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "program"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttrib1f",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLfloat",
+          "x"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttrib1fv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "const GLfloat *",
+          "v"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttrib2f",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLfloat",
+          "x"
+        ],
+        [
+          "GLfloat",
+          "y"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttrib2fv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "const GLfloat *",
+          "v"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttrib3f",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLfloat",
+          "x"
+        ],
+        [
+          "GLfloat",
+          "y"
+        ],
+        [
+          "GLfloat",
+          "z"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttrib3fv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "const GLfloat *",
+          "v"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttrib4f",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLfloat",
+          "x"
+        ],
+        [
+          "GLfloat",
+          "y"
+        ],
+        [
+          "GLfloat",
+          "z"
+        ],
+        [
+          "GLfloat",
+          "w"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttrib4fv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "const GLfloat *",
+          "v"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttribDivisor",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLuint",
+          "divisor"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttribI4i",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLint",
+          "x"
+        ],
+        [
+          "GLint",
+          "y"
+        ],
+        [
+          "GLint",
+          "z"
+        ],
+        [
+          "GLint",
+          "w"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttribI4iv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "const GLint *",
+          "v"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttribI4ui",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLuint",
+          "x"
+        ],
+        [
+          "GLuint",
+          "y"
+        ],
+        [
+          "GLuint",
+          "z"
+        ],
+        [
+          "GLuint",
+          "w"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttribI4uiv",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "const GLuint *",
+          "v"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttribIPointer",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLint",
+          "size"
+        ],
+        [
+          "GLenum",
+          "type"
+        ],
+        [
+          "GLsizei",
+          "stride"
+        ],
+        [
+          "const void *",
+          "pointer"
+        ]
+      ]
+    },
+    {
+      "name": "glVertexAttribPointer",
+      "result": "void",
+      "params": [
+        [
+          "GLuint",
+          "index"
+        ],
+        [
+          "GLint",
+          "size"
+        ],
+        [
+          "GLenum",
+          "type"
+        ],
+        [
+          "GLboolean",
+          "normalized"
+        ],
+        [
+          "GLsizei",
+          "stride"
+        ],
+        [
+          "const void *",
+          "pointer"
+        ]
+      ]
+    },
+    {
+      "name": "glViewport",
+      "result": "void",
+      "params": [
+        [
+          "GLint",
+          "x"
+        ],
+        [
+          "GLint",
+          "y"
+        ],
+        [
+          "GLsizei",
+          "width"
+        ],
+        [
+          "GLsizei",
+          "height"
+        ]
+      ]
+    },
+    {
+      "name": "glWaitSync",
+      "result": "void",
+      "params": [
+        [
+          "GLsync",
+          "sync"
+        ],
+        [
+          "GLbitfield",
+          "flags"
+        ],
+        [
+          "GLuint64",
+          "timeout"
+        ]
+      ]
+    }
+  ]
+}

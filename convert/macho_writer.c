@@ -66,9 +66,12 @@ struct island {
     uint64_t tp_thunk[31];
     uint64_t tramps;
     uint64_t slots;      /* Mach-O vmaddr of the slot words */
+    uint64_t stub_table, stub_code, stub_names;
+    uint32_t nstubs;
 };
 
-static uint64_t island_plan(const struct scan_result *scan, uint64_t start, struct island *is) {
+static uint64_t island_plan(const struct scan_result *scan, const struct henge_symbol *imports,
+                            size_t nimports, uint64_t start, struct island *is) {
     memset(is, 0, sizeof *is);
     is->addr = start;
     uint64_t o = start + sizeof(struct henge_island_hdr);
@@ -82,6 +85,16 @@ static uint64_t island_plan(const struct scan_result *scan, uint64_t start, stru
         if (regs[r]) { is->tp_thunk[r] = o; o += 4 * TP_THUNK_INSNS; }
     is->tramps = o;
     o += 4ull * TRAMP_INSNS * scan->npatches;
+    o = hc_align_up(o, 8);
+    for (size_t i = 0; i < nimports; i++)
+        if (!imports[i].weak && imports[i].type == STT_FUNC) is->nstubs++;
+    is->stub_table = o;
+    o += sizeof(struct henge_function_stub) * is->nstubs;
+    is->stub_code = o;
+    o += 20ull * is->nstubs;
+    is->stub_names = o;
+    for (size_t i = 0; i < nimports; i++)
+        if (!imports[i].weak && imports[i].type == STT_FUNC) o += strlen(imports[i].name) + 1;
     is->size = o - start;
     return o;
 }
@@ -121,11 +134,14 @@ static void emit_tp_thunk(uint8_t *mo, const struct island *is, unsigned n) {
 }
 
 static int apply_patches(uint8_t *mo, uint64_t H, const struct scan_result *scan, const struct island *is,
+                         const struct henge_symbol *imports, size_t nimports,
                          char *err, size_t errlen) {
     struct henge_island_hdr hdr = {
         .magic = HENGE_ISLAND_MAGIC,
         .version = HENGE_ISLAND_VERSION,
         .slots_vmaddr = is->slots,
+        .nstubs = is->nstubs,
+        .stubs_offset = (uint32_t)(is->stub_table - is->addr),
     };
     if (is->svc_thunk) emit_svc_thunk(mo, is);
     for (unsigned r = 0; r < 31; r++)
@@ -158,14 +174,32 @@ static int apply_patches(uint8_t *mo, uint64_t H, const struct scan_result *scan
         return hc_fail(err, errlen, "patch site 0x%llx is out of branch range of the island (code > 128 MiB?)",
                        (unsigned long long)p->vaddr);
     }
+    uint64_t code = is->stub_code, name = is->stub_names, table = is->stub_table;
+    for (size_t i = 0; i < nimports; i++) {
+        if (imports[i].weak || imports[i].type != STT_FUNC) continue;
+        struct henge_function_stub stub = {name, code};
+        memcpy(mo + table, &stub, sizeof stub);
+        table += sizeof stub;
+        memcpy(mo + name, imports[i].name, strlen(imports[i].name) + 1);
+        emit(mo, &code, a64_adrp(0, code, name));
+        emit(mo, &code, 0x91000000u | (uint32_t)(name & 0xfff) << 10); /* add x0,x0,#name */
+        uint64_t slot = is->slots + 8 * HENGE_SLOT_MISSING;
+        emit(mo, &code, a64_adrp(16, code, slot));
+        emit(mo, &code, a64_ldr_uoff(16, 16, slot));
+        emit(mo, &code, 0xd61f0200u); /* br x16: never returns */
+        name += strlen(imports[i].name) + 1;
+    }
     memcpy(mo + is->addr, &hdr, sizeof hdr);
     return 0;
 }
 
 int hc_macho_write(const struct elf_info *e, const struct henge_convert_opts *opts,
-                   const struct scan_result *scan, uint8_t **out, size_t *out_size, char *err,
+                   const struct scan_result *scan, const struct henge_symbol *imports, size_t nimports,
+                   int fd, uint8_t **out, size_t *out_size, char *err,
                    size_t errlen) {
     int patched = scan->npatches > 0;
+    for (size_t i = 0; i < nimports; i++)
+        if (!imports[i].weak && imports[i].type == STT_FUNC) patched = 1;
 
     const size_t strtab_raw = 1 + sizeof(MARKER_SYM); /* leading NUL + name + NUL */
     const uint32_t le_strsize = (uint32_t)hc_align_up(strtab_raw, 8);
@@ -184,7 +218,7 @@ int hc_macho_write(const struct elf_info *e, const struct henge_convert_opts *op
     struct island is = {0};
     uint64_t H = HC_SHIFT;
     if (patched) {
-        uint64_t end = island_plan(scan, hc_align_up(lc_end, 16), &is);
+        uint64_t end = island_plan(scan, imports, nimports, hc_align_up(lc_end, 16), &is);
         if (hc_align_up(end, PAGE) > H) H = hc_align_up(end, PAGE);
     } else if (lc_end > H) {
         return hc_fail(err, errlen, "load commands do not fit in the %u-byte header area (install name too long?)",
@@ -202,14 +236,14 @@ int hc_macho_write(const struct elf_info *e, const struct henge_convert_opts *op
     uint64_t le_addr = data_addr + data_vmsize;
 
     size_t total = (size_t)(le_off + le_size);
-    uint8_t *mo = calloc(1, total);
+    uint8_t *mo = hc_buffer_alloc(total, fd);
     if (!mo) return hc_fail(err, errlen, "out of memory");
 
     /* ELF image bytes at H + vaddr, then the code patches. */
     for (unsigned i = 0; i < e->nloads; i++)
         memcpy(mo + H + e->loads[i].p_vaddr, e->data + e->loads[i].p_offset, e->loads[i].p_filesz);
-    if (patched && apply_patches(mo, H, scan, &is, err, errlen) != 0) {
-        free(mo);
+    if (patched && apply_patches(mo, H, scan, &is, imports, nimports, err, errlen) != 0) {
+        hc_buffer_free(mo, total, fd);
         return -1;
     }
 

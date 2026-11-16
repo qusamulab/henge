@@ -44,8 +44,8 @@ static void be64(uint8_t *p, uint64_t v) {
 }
 
 /* Ad hoc when sg is NULL, else signed with the identity behind sg. */
-static int sign_impl(const uint8_t *macho, size_t size, const char *identifier, const struct henge_signer *sg,
-                     uint8_t **out, size_t *out_size, char *err, size_t errlen) {
+int hc_sign_to_fd(const uint8_t *macho, size_t size, const char *identifier, const struct henge_signer *sg,
+                  int fd, uint8_t **out, size_t *out_size, char *err, size_t errlen) {
     *out = NULL;
     *out_size = 0;
     if (!identifier || !*identifier) return hc_fail(err, errlen, "signing identifier is required");
@@ -132,7 +132,7 @@ static int sign_impl(const uint8_t *macho, size_t size, const char *identifier, 
     uint32_t datasize = (uint32_t)hc_align_up(sb_len, 16);
 
     size_t total = (size_t)(dataoff + datasize);
-    uint8_t *mo = calloc(1, total);
+    uint8_t *mo = hc_buffer_alloc(total, fd);
     if (!mo) return hc_fail(err, errlen, "out of memory");
     memcpy(mo, macho, (size_t)base);
 
@@ -210,12 +210,12 @@ static int sign_impl(const uint8_t *macho, size_t size, const char *identifier, 
         uint8_t *der;
         size_t der_len;
         if (hc_cms_build(sg, cd, cd_len, 0, &der, &der_len, err, errlen) != 0) {
-            free(mo);
+            hc_buffer_free(mo, total, fd);
             return -1;
         }
         if (der_len != cms_der_len) {
             free(der);
-            free(mo);
+            hc_buffer_free(mo, total, fd);
             return hc_fail(err, errlen, "internal error: CMS size changed (%zu -> %zu)", cms_der_len, der_len);
         }
         memcpy(cms + 8, der, der_len);
@@ -229,7 +229,7 @@ static int sign_impl(const uint8_t *macho, size_t size, const char *identifier, 
 
 int henge_sign_adhoc(const uint8_t *macho, size_t size, const char *identifier, uint8_t **out,
                      size_t *out_size, char *err, size_t errlen) {
-    return sign_impl(macho, size, identifier, NULL, out, out_size, err, errlen);
+    return hc_sign_to_fd(macho, size, identifier, NULL, -1, out, out_size, err, errlen);
 }
 
 int henge_sign_identity(const uint8_t *macho, size_t size, const char *identifier,
@@ -239,5 +239,5 @@ int henge_sign_identity(const uint8_t *macho, size_t size, const char *identifie
     *out_size = 0;
     if (!signer || !signer->cert || !signer->sign || signer->signature_len == 0)
         return hc_fail(err, errlen, "incomplete signer");
-    return sign_impl(macho, size, identifier, signer, out, out_size, err, errlen);
+    return hc_sign_to_fd(macho, size, identifier, signer, -1, out, out_size, err, errlen);
 }

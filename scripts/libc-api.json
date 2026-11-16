@@ -1,0 +1,1981 @@
+{
+  "source": "Reviewed bionic LP64 names from Android NDK r29 sysroot; only fixed scalar/pointer signatures with compatible layouts are generated. Other APIs retain handwritten ABI/constant adapters. Not a full libc symbol list.",
+  "symbols": [
+    {
+      "name": "AAssetDir_close",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAssetDir_getNextFileName",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAssetDir_rewind",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAssetManager_fromJava",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAssetManager_open",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAssetManager_openDir",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_close",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_getBuffer",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_getLength",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_getLength64",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_getRemainingLength",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_getRemainingLength64",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_isAllocated",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_openFileDescriptor",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_openFileDescriptor64",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_read",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_seek",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AAsset_seek64",
+      "category": "handwritten",
+      "source": "runtime/assets.c"
+    },
+    {
+      "name": "AConfiguration_delete",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_fromAssetManager",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getCountry",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getDensity",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getKeyboard",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getKeysHidden",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getLanguage",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getMcc",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getMnc",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getNavHidden",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getNavigation",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getOrientation",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getScreenLong",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getScreenSize",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getSdkVersion",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getTouchscreen",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getUiModeNight",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_getUiModeType",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AConfiguration_new",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AInputEvent_getDeviceId",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AInputEvent_getSource",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AInputEvent_getType",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AInputQueue_attachLooper",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AInputQueue_detachLooper",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AInputQueue_finishEvent",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AInputQueue_getEvent",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AInputQueue_hasEvents",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AInputQueue_preDispatchEvent",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AKeyEvent_getAction",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AKeyEvent_getDownTime",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AKeyEvent_getEventTime",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AKeyEvent_getFlags",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AKeyEvent_getKeyCode",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AKeyEvent_getMetaState",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AKeyEvent_getRepeatCount",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AKeyEvent_getScanCode",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ALooper_acquire",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ALooper_addFd",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ALooper_forThread",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ALooper_pollAll",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ALooper_pollOnce",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ALooper_prepare",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ALooper_release",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ALooper_removeFd",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ALooper_wake",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getAction",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getButtonState",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getDownTime",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getEdgeFlags",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getEventTime",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getFlags",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getHistorySize",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getMetaState",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getPointerCount",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getPointerId",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getPressure",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getRawX",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getRawY",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getSize",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getToolType",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getX",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getXOffset",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getY",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "AMotionEvent_getYOffset",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ANativeActivity_finish",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ANativeActivity_setWindowFlags",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ANativeActivity_setWindowFormat",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ANativeWindow_acquire",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ANativeWindow_getFormat",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ANativeWindow_getHeight",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ANativeWindow_getWidth",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ANativeWindow_release",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "ANativeWindow_setBuffersGeometry",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "__android_log_print",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "__android_log_write",
+      "category": "handwritten",
+      "source": "runtime/shim_android.c"
+    },
+    {
+      "name": "__ctype_get_mb_cur_max",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "__cxa_atexit",
+      "category": "handwritten",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "__cxa_finalize",
+      "category": "handwritten",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "__errno",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "__register_atfork",
+      "category": "handwritten",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "__sF",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "__stack_chk_fail",
+      "category": "handwritten",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "__system_property_get",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "abort",
+      "category": "direct",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "abs",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "acos",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "acosf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "android_dlopen_ext",
+      "category": "handwritten",
+      "source": "runtime/dl.c"
+    },
+    {
+      "name": "android_set_abort_message",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "asin",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "asinf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "atan",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "atan2",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x",
+        "double y"
+      ]
+    },
+    {
+      "name": "atan2f",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x",
+        "float y"
+      ]
+    },
+    {
+      "name": "atanf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "atof",
+      "category": "errno",
+      "result": "double",
+      "args": [
+        "const char *s"
+      ]
+    },
+    {
+      "name": "atoi",
+      "category": "errno",
+      "result": "int",
+      "args": [
+        "const char *s"
+      ]
+    },
+    {
+      "name": "atol",
+      "category": "errno",
+      "result": "long",
+      "args": [
+        "const char *s"
+      ]
+    },
+    {
+      "name": "bsearch",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "btowc",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "calloc",
+      "category": "errno",
+      "result": "void *",
+      "args": [
+        "size_t n",
+        "size_t size"
+      ]
+    },
+    {
+      "name": "ceil",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "ceilf",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "clock_gettime",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "close",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "closelog",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "cos",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "cosf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "cosh",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "coshf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "dl_iterate_phdr",
+      "category": "handwritten",
+      "source": "runtime/dl.c"
+    },
+    {
+      "name": "dladdr",
+      "category": "handwritten",
+      "source": "runtime/dl.c"
+    },
+    {
+      "name": "dlclose",
+      "category": "handwritten",
+      "source": "runtime/dl.c"
+    },
+    {
+      "name": "dlerror",
+      "category": "handwritten",
+      "source": "runtime/dl.c"
+    },
+    {
+      "name": "dlopen",
+      "category": "handwritten",
+      "source": "runtime/dl.c"
+    },
+    {
+      "name": "dlsym",
+      "category": "handwritten",
+      "source": "runtime/dl.c"
+    },
+    {
+      "name": "exp",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "expf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "fabs",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "fabsf",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "fclose",
+      "category": "errno",
+      "result": "int",
+      "args": [
+        "void *f"
+      ],
+      "call": "hr_file(f)"
+    },
+    {
+      "name": "feof",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "ferror",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "fflush",
+      "category": "errno",
+      "result": "int",
+      "args": [
+        "void *f"
+      ],
+      "call": "f ? hr_file(f) : NULL"
+    },
+    {
+      "name": "fgetc",
+      "category": "errno",
+      "result": "int",
+      "args": [
+        "void *f"
+      ],
+      "call": "hr_file(f)"
+    },
+    {
+      "name": "fgets",
+      "category": "errno",
+      "result": "char *",
+      "args": [
+        "char *b",
+        "int n",
+        "void *f"
+      ],
+      "call": "b, n, hr_file(f)"
+    },
+    {
+      "name": "floor",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "floorf",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "fmax",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "fmaxf",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "fmin",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "fminf",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "fmod",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x",
+        "double y"
+      ]
+    },
+    {
+      "name": "fmodf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x",
+        "float y"
+      ]
+    },
+    {
+      "name": "fopen",
+      "category": "errno",
+      "result": "FILE *",
+      "args": [
+        "const char *path",
+        "const char *mode"
+      ]
+    },
+    {
+      "name": "fprintf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "fputc",
+      "category": "errno",
+      "result": "int",
+      "args": [
+        "int c",
+        "void *f"
+      ],
+      "call": "c, hr_file(f)"
+    },
+    {
+      "name": "fputs",
+      "category": "errno",
+      "result": "int",
+      "args": [
+        "const char *s",
+        "void *f"
+      ],
+      "call": "s, hr_file(f)"
+    },
+    {
+      "name": "fread",
+      "category": "errno",
+      "result": "size_t",
+      "args": [
+        "void *b",
+        "size_t size",
+        "size_t n",
+        "void *f"
+      ],
+      "call": "b, size, n, hr_file(f)"
+    },
+    {
+      "name": "free",
+      "category": "direct",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "freelocale",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "fseek",
+      "category": "errno",
+      "result": "int",
+      "args": [
+        "void *f",
+        "long offset",
+        "int whence"
+      ],
+      "call": "hr_file(f), offset, whence"
+    },
+    {
+      "name": "fseeko",
+      "category": "errno",
+      "result": "int",
+      "args": [
+        "void *f",
+        "int64_t offset",
+        "int whence"
+      ],
+      "call": "hr_file(f), offset, whence"
+    },
+    {
+      "name": "ftell",
+      "category": "errno",
+      "result": "long",
+      "args": [
+        "void *f"
+      ],
+      "call": "hr_file(f)"
+    },
+    {
+      "name": "ftello",
+      "category": "errno",
+      "result": "int64_t",
+      "args": [
+        "void *f"
+      ],
+      "call": "hr_file(f)"
+    },
+    {
+      "name": "fwrite",
+      "category": "errno",
+      "result": "size_t",
+      "args": [
+        "const void *b",
+        "size_t size",
+        "size_t n",
+        "void *f"
+      ],
+      "call": "b, size, n, hr_file(f)"
+    },
+    {
+      "name": "getauxval",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "getenv",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "hypot",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x",
+        "double y"
+      ]
+    },
+    {
+      "name": "hypotf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x",
+        "float y"
+      ]
+    },
+    {
+      "name": "isalnum",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "isalpha",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "isdigit",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "islower",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "isprint",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "ispunct",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "isspace",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "isupper",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "iswalpha_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "iswblank_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "iswcntrl_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "iswdigit_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "iswlower_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "iswprint_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "iswpunct_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "iswspace_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "iswupper_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "iswxdigit_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "isxdigit",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "labs",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "localeconv",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "log",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "log10",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "log10f",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "log2",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "log2f",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "logf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "malloc",
+      "category": "errno",
+      "result": "void *",
+      "args": [
+        "size_t n"
+      ]
+    },
+    {
+      "name": "mbrlen",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "mbrtowc",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "mbsnrtowcs",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "mbsrtowcs",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "mbtowc",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "memchr",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "memcmp",
+      "category": "direct",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "memcpy",
+      "category": "direct",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "memmove",
+      "category": "direct",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "memset",
+      "category": "direct",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "nanosleep",
+      "category": "errno",
+      "result": "int",
+      "args": [
+        "const struct timespec *request",
+        "struct timespec *remaining"
+      ]
+    },
+    {
+      "name": "newlocale",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "openlog",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pipe",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pipe2",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "posix_memalign",
+      "category": "error-code",
+      "result": "int",
+      "args": [
+        "void **out",
+        "size_t alignment",
+        "size_t size"
+      ]
+    },
+    {
+      "name": "pow",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x",
+        "double y"
+      ]
+    },
+    {
+      "name": "powf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x",
+        "float y"
+      ]
+    },
+    {
+      "name": "printf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "pthread_attr_destroy",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_attr_getstacksize",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_attr_init",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_attr_setdetachstate",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_attr_setstacksize",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_cond_broadcast",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_cond_destroy",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_cond_init",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_cond_signal",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_cond_timedwait",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_cond_wait",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_create",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_detach",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_equal",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_getspecific",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pthread_join",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_key_create",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pthread_key_delete",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pthread_mutex_destroy",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_mutex_init",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_mutex_lock",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_mutex_trylock",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_mutex_unlock",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_mutexattr_destroy",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_mutexattr_gettype",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_mutexattr_init",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_mutexattr_settype",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_once",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pthread_rwlock_destroy",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pthread_rwlock_init",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pthread_rwlock_rdlock",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pthread_rwlock_tryrdlock",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pthread_rwlock_trywrlock",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pthread_rwlock_unlock",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pthread_rwlock_wrlock",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "pthread_self",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "pthread_setspecific",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "puts",
+      "category": "errno",
+      "result": "int",
+      "args": [
+        "const char *s"
+      ]
+    },
+    {
+      "name": "qsort",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "rand",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "read",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "realloc",
+      "category": "errno",
+      "result": "void *",
+      "args": [
+        "void *p",
+        "size_t size"
+      ]
+    },
+    {
+      "name": "rewind",
+      "category": "errno",
+      "result": "void",
+      "args": [
+        "void *f"
+      ],
+      "call": "hr_file(f)"
+    },
+    {
+      "name": "round",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "roundf",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "setbuf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "setlocale",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "sin",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "sinf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "sinh",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "sinhf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "snprintf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "sprintf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "sqrt",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "sqrtf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "srand",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "sscanf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strcasecmp",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strcat",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strchr",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strcmp",
+      "category": "direct",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "strcoll_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "strcpy",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strcspn",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strdup",
+      "category": "errno",
+      "result": "char *",
+      "args": [
+        "const char *s"
+      ]
+    },
+    {
+      "name": "strerror",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "strerror_r",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "strftime_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "strlen",
+      "category": "direct",
+      "source": "runtime/shim.c"
+    },
+    {
+      "name": "strncasecmp",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strncat",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strncmp",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strncpy",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strndup",
+      "category": "errno",
+      "result": "char *",
+      "args": [
+        "const char *s",
+        "size_t n"
+      ]
+    },
+    {
+      "name": "strnlen",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strrchr",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strspn",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strstr",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strtod",
+      "category": "errno",
+      "result": "double",
+      "args": [
+        "const char *s",
+        "char **end"
+      ]
+    },
+    {
+      "name": "strtof",
+      "category": "errno",
+      "result": "float",
+      "args": [
+        "const char *s",
+        "char **end"
+      ]
+    },
+    {
+      "name": "strtok",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strtok_r",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "strtol",
+      "category": "errno",
+      "result": "long",
+      "args": [
+        "const char *s",
+        "char **end",
+        "int base"
+      ]
+    },
+    {
+      "name": "strtold",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "strtold_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "strtoll",
+      "category": "errno",
+      "result": "long long",
+      "args": [
+        "const char *s",
+        "char **end",
+        "int base"
+      ]
+    },
+    {
+      "name": "strtoll_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "strtoul",
+      "category": "errno",
+      "result": "unsigned long",
+      "args": [
+        "const char *s",
+        "char **end",
+        "int base"
+      ]
+    },
+    {
+      "name": "strtoull",
+      "category": "errno",
+      "result": "unsigned long long",
+      "args": [
+        "const char *s",
+        "char **end",
+        "int base"
+      ]
+    },
+    {
+      "name": "strtoull_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "strxfrm_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "swprintf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "syscall",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "sysconf",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "syslog",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "tan",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "tanf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "tanh",
+      "category": "math",
+      "result": "double",
+      "args": [
+        "double x"
+      ]
+    },
+    {
+      "name": "tanhf",
+      "category": "math",
+      "result": "float",
+      "args": [
+        "float x"
+      ]
+    },
+    {
+      "name": "time",
+      "category": "errno",
+      "result": "time_t",
+      "args": [
+        "time_t *out"
+      ]
+    },
+    {
+      "name": "tolower",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "toupper",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "towlower_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "towupper_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "trunc",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "truncf",
+      "category": "direct",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "uselocale",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "usleep",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    },
+    {
+      "name": "vasprintf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "vfprintf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "vsnprintf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "vsprintf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "vsscanf",
+      "category": "handwritten",
+      "source": "runtime/shim_libc.c"
+    },
+    {
+      "name": "wcrtomb",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wcscoll_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wcslen",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wcsnrtombs",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wcstod",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wcstof",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wcstol",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wcstold",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wcstoll",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wcstoul",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wcstoull",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wcsxfrm_l",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wctob",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wmemchr",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "wmemcmp",
+      "category": "handwritten",
+      "source": "runtime/shim_cxx.c"
+    },
+    {
+      "name": "write",
+      "category": "handwritten",
+      "source": "runtime/shim_posix.c"
+    }
+  ]
+}

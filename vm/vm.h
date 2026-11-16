@@ -72,6 +72,7 @@ struct Method {
     uint32_t insns_size; /* in 16-bit units */
     const uint8_t *tries_data;   /* try_items followed by encoded_catch_handler_list */
     NativeFn native;
+    void *jni_native;   /* AAPCS64 function registered by JNI / Java_* lookup */
     Dex *dex;
     uint16_t arg_words;  /* receiver + parameter words */
 };
@@ -132,6 +133,9 @@ struct Thread {
     pthread_t pthread;
     Ref thread_obj;
     int depth;
+    unsigned lock_depth;
+    void *jni_env;
+    int jni_detached; /* a retained host main thread may already have exited */
     Thread *next;
 };
 
@@ -147,6 +151,8 @@ struct VM {
     Class **classes;          /* loaded classes */
     size_t nclasses, cap_classes;
     Thread *threads;
+    Thread *main_thread;
+    void *jni;
     Ref *pins; size_t npins, cap_pins; /* native roots */
     const char *(*intern)(VM *vm, const char *s);
     char **interned; size_t ninterned, cap_interned;
@@ -162,6 +168,19 @@ struct VM {
 VM *vm_create(void);
 int vm_add_dex(VM *vm, const uint8_t *data, size_t size, char *err, size_t errlen); /* takes a borrowed buffer */
 Thread *vm_main_thread(VM *vm);
+Thread *vm_attach_thread(VM *vm);
+void vm_enter(Thread *t);
+void vm_leave(Thread *t);
+unsigned vm_suspend(Thread *t);
+void vm_resume(Thread *t, unsigned depth);
+uint64_t vm_jni_invoke(Thread *t, Method *method, uint32_t *args);
+int vm_jni_init(VM *vm);
+int vm_jni_has_libraries(VM *vm);
+void vm_jni_destroy(VM *vm);
+void vm_jni_sweep_weak(VM *vm);
+void *vm_jni_env(Thread *t);
+void *vm_java_vm(VM *vm);
+int vm_jni_load(Thread *t, const char *name);
 
 Class *vm_find_class(VM *vm, const char *descriptor); /* NULL if missing; applies the java.* remap */
 Method *vm_find_method(Class *cls, const char *name, const char *proto); /* proto "(II)V"; searches supers */
@@ -201,26 +220,11 @@ extern void (*vm_asset_reader)(const char *name, uint8_t **data, size_t *size); 
 void vm_register_android_natives(VM *vm);
 
 const uint8_t *vm_android_dex(size_t *size); /* henge-android.dex, embedded */
+/* Frees pure-Java VMs. A VM that has loaded native libraries is retained until process exit:
+ * native code can keep JavaVM pointers. Its caller-owned DEX buffers must remain alive too. */
 void vm_destroy(VM *vm);
 
-/* ---- host: runs an APK's launcher Activity (Kotlin / Java) on the VM ---- */
-
-typedef struct vm_host vm_host;
-
-struct vm_host_opts {
-    const char *apk_path;
-    void *window;        /* struct ANativeWindow* (runtime/android.h) backing the GLSurfaceView */
-    int width, height;   /* window size in pixels */
-    void (*log)(int prio, const char *tag, const char *msg, void *user); /* android.util.Log and uncaught exceptions */
-    void *user;
-};
-
-/* Starts the activity on its own thread and returns once onCreate and the first surface callbacks have run
- * (NULL with a message in err on failure). */
-vm_host *vm_host_start(const struct vm_host_opts *opts, char *err, size_t errlen);
-void vm_host_touch(vm_host *h, int phase, int id, float x, float y); /* phase: 0 down 1 move 2 up 3 cancel */
-void vm_host_stop(vm_host *h); /* onPause / onStop / onDestroy, joins the thread */
-int vm_host_running(vm_host *h);
+#include "henge/vm_host.h"
 
 /* natives */
 void vm_register_native(VM *vm, const char *cls, const char *name, const char *proto, NativeFn fn);
