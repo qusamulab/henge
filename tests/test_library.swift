@@ -64,6 +64,49 @@ struct LibraryTests {
         check(metadata.nativeLibraries == ["libadd.so"] && metadata.architectures == ["arm64-v8a"], "APK native libraries and architectures")
         check(metadata.nativeActivity && metadata.entryLibrary == "libadd.so" && metadata.executionIssue == nil, "NativeActivity entry library is available")
 
+        let cache = root.appendingPathComponent("cache", isDirectory: true)
+        let prepared = try APKPreparation.prepare(sample, cache: cache)
+        check(prepared.libraries.count == 1 && prepared.issues.isEmpty, "conversion creates a compatibility report")
+        let converted = prepared.directory.appendingPathComponent("libadd.dylib")
+        let original = try Data(contentsOf: converted)
+        let oldDate = Date(timeIntervalSince1970: 100)
+        try fm.setAttributes([.modificationDate: oldDate], ofItemAtPath: converted.path)
+        let hit = try APKPreparation.prepare(sample, cache: cache)
+        let cachedDate = try fm.attributesOfItem(atPath: converted.path)[.modificationDate] as? Date
+        check(hit.directory == prepared.directory && cachedDate == oldDate,
+              "identical APK reuses converted output")
+        try Data([0]).write(to: converted)
+        _ = try APKPreparation.prepare(sample, cache: cache)
+        check(try Data(contentsOf: converted) == original, "corrupt conversion cache is rebuilt")
+        let signed = try APKPreparation.sign(prepared, signer: nil, cache: cache)
+        let signedImage = signed.appendingPathComponent("libadd.dylib")
+        let signedBytes = try Data(contentsOf: signedImage)
+        try fm.setAttributes([.modificationDate: oldDate], ofItemAtPath: signedImage.path)
+        check(try APKPreparation.sign(prepared, signer: nil, cache: cache) == signed &&
+              (try fm.attributesOfItem(atPath: signedImage.path)[.modificationDate] as? Date) == oldDate,
+              "valid signed cache is reused")
+        try Data([1]).write(to: signedImage)
+        _ = try APKPreparation.sign(prepared, signer: nil, cache: cache)
+        check(try Data(contentsOf: signedImage) == signedBytes, "corrupt signed cache is regenerated")
+        try fm.setAttributes([.modificationDate: oldDate], ofItemAtPath: signed.appendingPathComponent("signed-at").path)
+        _ = try APKPreparation.sign(prepared, signer: nil, cache: cache)
+        check((try fm.attributesOfItem(atPath: signed.appendingPathComponent("signed-at").path)[.modificationDate] as? Date) != oldDate,
+              "aged signing cache is refreshed")
+        // Empty native set isolates certificate-key invalidation from real identity availability.
+        let empty = APKPreparation.Prepared(digest: "empty", directory: prepared.directory, libraries: [])
+        func signedWithCertificate(_ bytes: [UInt8]) throws -> URL {
+            try bytes.withUnsafeBufferPointer { buffer in
+                var signer = henge_signer()
+                signer.cert = buffer.baseAddress; signer.cert_len = buffer.count
+                return try APKPreparation.sign(empty, signer: &signer, cache: cache)
+            }
+        }
+        check(try signedWithCertificate([1]) != signedWithCertificate([2]), "certificate change selects a different signing cache")
+        let altered = root.appendingPathComponent("altered.apk")
+        var alteredBytes = try Data(contentsOf: sample); alteredBytes.append(0)
+        try alteredBytes.write(to: altered)
+        check(try APKPreparation.prepare(altered, cache: cache).directory != prepared.directory, "APK content change invalidates conversion cache")
+
         let first = try storage.importFile(from: sample)
         let second = try storage.importFile(from: sample)
         let third = try storage.importFile(from: sample)

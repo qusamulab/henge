@@ -2,10 +2,11 @@
 #include "internal.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 static int check_target_n(const henge_image *im, uintptr_t p, size_t n, char *err, size_t errlen)
 {
-    if (p < im->w_lo || p + n > im->w_hi || (p & 7) != 0)
+    if (p < im->w_lo || p > im->w_hi || n > im->w_hi - p || (p & 7) != 0)
         return hr_fail(err, errlen, "relocation target 0x%llx (vaddr 0x%llx) outside writable segment",
                        (unsigned long long)p, (unsigned long long)(p - im->base));
     return 0;
@@ -33,13 +34,13 @@ static int tls_symbol(henge_image *im, uint32_t symidx, uint64_t nsyms, struct h
             *off = s->st_value;
         } else {
             *mod = NULL;
-            for (henge_image *o = hr_images; o; o = o->next) {
-                const Elf64_Sym *d = hr_lookup_sym(o, name);
-                if (d && ELF64_ST_TYPE(d->st_info) == STT_TLS) {
-                    *mod = o->tls;
-                    *off = d->st_value;
-                    break;
-                }
+            henge_image *owner = NULL;
+            const Elf64_Sym *d = NULL;
+            int found = hr_resolve_scope(im, name, 1, &owner, &d, NULL);
+            if (found < 0) return hr_fail(err, errlen, "out of memory resolving TLS symbol");
+            if (found && owner && d && ELF64_ST_TYPE(d->st_info) == STT_TLS) {
+                *mod = owner->tls;
+                *off = d->st_value;
             }
             if (!*mod)
                 return hr_fail(err, errlen, "undefined TLS symbol: %s", name);
@@ -78,15 +79,32 @@ static int symbol_value(henge_image *im, uint32_t symidx, uint64_t nsyms, uintpt
     const char *name = im->strtab + s->st_name;
     if (ELF64_ST_TYPE(s->st_info) == 6 /* STT_TLS */)
         return hr_fail(err, errlen, "TLS symbol %s: not supported until M2", name);
+    if (s->st_shndx != SHN_UNDEF &&
+        (ELF64_ST_BIND(s->st_info) == STB_LOCAL || (s->st_other & 3) != 0)) {
+        *out = hr_sym_addr(im, s);
+        return 0;
+    }
+    int found = hr_resolve_scope(im, name, 1, NULL, NULL, out);
+    if (found < 0) return hr_fail(err, errlen, "out of memory resolving %s", name);
+    if (found)
+        return 0;
     if (s->st_shndx != SHN_UNDEF) {
         *out = hr_sym_addr(im, s);
         return 0;
     }
-    if (hr_resolve_global(name, out))
-        return 0;
     if (ELF64_ST_BIND(s->st_info) == STB_WEAK) {
         *out = 0;
         return 0;
+    }
+    if (ELF64_ST_TYPE(s->st_info) == STT_FUNC && im->island) {
+        const struct henge_function_stub *stubs = (const void *)((const uint8_t *)im->island + im->island->stubs_offset);
+        for (uint32_t i = 0; i < im->island->nstubs; i++) {
+            const char *stub_name = (const char *)(im->macho_base + stubs[i].name_vmaddr);
+            if (!strcmp(name, stub_name)) {
+                *out = im->macho_base + stubs[i].entry_vmaddr;
+                return 0;
+            }
+        }
     }
     return hr_fail(err, errlen, "undefined symbol: %s", name);
 }

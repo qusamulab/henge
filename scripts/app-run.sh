@@ -18,7 +18,7 @@ xcrun simctl install "$SIM" "$APP"
 LOG=$(mktemp -t henge-app-run)
 trap 'rm -f "$LOG"' EXIT
 # --console-pty keeps the app's stdout line-buffered; simctl blocks until the app exits.
-xcrun simctl launch --console-pty --terminate-running-process "$SIM" "$BUNDLE_ID" >"$LOG" 2>&1 &
+xcrun simctl launch --console-pty --terminate-running-process "$SIM" "$BUNDLE_ID" -selfTest YES >"$LOG" 2>&1 &
 LAUNCH_PID=$!
 
 status=1

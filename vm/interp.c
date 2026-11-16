@@ -52,11 +52,13 @@ static int32_t find_handler(Thread *t, Method *m, uint32_t dex_pc, Object *exc)
     return -1;
 }
 
-uint64_t vm_invoke(Thread *t, Method *m, uint32_t *args)
+static uint64_t invoke_locked(Thread *t, Method *m, uint32_t *args)
 {
     VM *vm = t->vm;
     if (m->native)
         return m->native(t, args);
+    if (m->access & ACC_NATIVE)
+        return vm_jni_invoke(t, m, args);
     if (!m->insns) {
         char msg[512];
         snprintf(msg, sizeof msg, "%s.%s", m->cls->name, m->sig);
@@ -523,5 +525,13 @@ exception: {
 done:
     t->sp = frame_base;
     t->depth--;
+    return result;
+}
+
+uint64_t vm_invoke(Thread *t, Method *m, uint32_t *args)
+{
+    vm_enter(t);
+    uint64_t result = invoke_locked(t, m, args);
+    vm_leave(t);
     return result;
 }

@@ -12,9 +12,11 @@ public final class System {
     public static native long nanoTime();
     public static native int identityHashCode(java.lang.Object o);
     public static native void exit(int status);
+    public static native void loadLibrary(String name);
+    public static native void load(String path);
     public static String getProperty(String key) { return null; }
     public static String getProperty(String key, String def) { return def; }
     public static String lineSeparator() { return "\n"; }
     public static String getenv(String key) { return null; }
-    public static void gc() {}
+    public static native void gc();
 }

@@ -49,6 +49,7 @@ int main(int argc, char **argv)
     run(img, "t_config");
     run(img, "t_log");
     run(img, "t_format");
+    run(img, "t_libc_errno");
 
     printf("%s: test_shim (%d failure%s)\n", failures ? "FAIL" : "PASS", failures, failures == 1 ? "" : "s");
     return failures ? 1 : 0;

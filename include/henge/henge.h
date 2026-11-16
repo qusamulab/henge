@@ -16,12 +16,13 @@
  * followed by the trampolines. The slots live in __DATA after the ELF image and are filled
  * by henge_link before any patched code runs. */
 #define HENGE_ISLAND_MAGIC 0x45474e48u /* "HNGE" */
-#define HENGE_ISLAND_VERSION 1u
+#define HENGE_ISLAND_VERSION 2u
 
 enum henge_slot {
     HENGE_SLOT_SVC = 0,    /* address of the runtime's Linux syscall entry */
     HENGE_SLOT_TP_KEY = 1, /* byte offset of the thread-pointer key in Darwin's TSD array */
     HENGE_SLOT_TP_SLOW = 2, /* address of the runtime's thread-pointer allocator */
+    HENGE_SLOT_MISSING = 3, /* reports an unsupported function and aborts */
     HENGE_NSLOTS = 4,
 };
 
@@ -31,8 +32,11 @@ struct henge_island_hdr {
     uint64_t slots_vmaddr; /* Mach-O vmaddr (relative to the header) of HENGE_NSLOTS words */
     uint32_t svc_sites;
     uint32_t tpidr_sites;
-    uint32_t reserved[2];
+    uint32_t nstubs;
+    uint32_t stubs_offset; /* from this header, to henge_function_stub[nstubs] */
 };
+
+struct henge_function_stub { uint64_t name_vmaddr, entry_vmaddr; };
 
 /* ---- converter (convert/) ---- */
 
@@ -51,6 +55,7 @@ struct henge_convert_opts {
 struct henge_symbol {
     char *name;
     int weak;
+    unsigned type; /* ELF STT_*; function stubs are permitted only for STT_FUNC */
 };
 
 struct henge_convert_result {
@@ -66,12 +71,17 @@ struct henge_convert_result {
     size_t nimports;
     struct henge_symbol *exports; /* defined global/weak dynamic symbols */
     size_t nexports;
+    int macho_mapped; /* private ownership flag; use henge_convert_result_free */
 };
 
 /* Returns 0 on success. On failure, writes a message to err and returns -1. */
 int henge_convert(const uint8_t *elf, size_t elf_size, const struct henge_convert_opts *opts,
                   struct henge_convert_result *out, char *err, size_t errlen);
 void henge_convert_result_free(struct henge_convert_result *res);
+/* File-backed equivalents. Outputs replace their destination atomically on success; on failure,
+ * existing files are preserved. convert_file returns metadata, with macho == NULL. */
+int henge_convert_file(const char *input, const char *output, const struct henge_convert_opts *opts,
+                       struct henge_convert_result *result, char *err, size_t errlen);
 
 /* Ad-hoc signs a thin arm64 Mach-O (like `codesign -s -`), replacing any existing
  * signature. identifier goes into the CodeDirectory. *out is malloc'd; caller frees.
@@ -103,6 +113,8 @@ struct henge_signer *henge_signer_from_pkcs12(const uint8_t *p12, size_t len, co
 /* macOS: the keychain identity whose certificate common name contains `name`. */
 struct henge_signer *henge_signer_from_keychain(const char *name, char *err, size_t errlen);
 void henge_signer_free(struct henge_signer *signer);
+int henge_sign_file(const char *input, const char *output, const char *identifier,
+                    const struct henge_signer *signer, char *err, size_t errlen);
 
 /* ---- runtime (runtime/) ---- */
 
@@ -116,6 +128,12 @@ henge_image *henge_link(const char *path, char *err, size_t errlen);
 /* Colon-separated directories searched for converted dependencies: DT_NEEDED or dlopen of
  * "libfoo.so" loads "<dir>/libfoo.dylib". */
 void henge_set_library_path(const char *dirs);
+/* Optional host conversion/signing hook for a file whose magic is ELF. The hook writes a
+ * persistent signed Mach-O path to output (capacity bytes), returning 0 or -1 with err.
+ * Called under the recursive linker lock. Callback and user must live until process exit. */
+typedef int (*henge_elf_prepare)(const char *input, char *output, size_t capacity, void *user,
+                                char *err, size_t errlen);
+void henge_set_elf_prepare(henge_elf_prepare prepare, void *user);
 
 /* dlopen + henge_link by path or by Android library name ("libfoo.so", searched along the
  * library path). Already linked images are returned as-is. */
@@ -162,6 +180,7 @@ void henge_shim_register(const struct henge_shim_entry *entries, size_t count);
 /* Receives every __android_log_print / __android_log_write line from Android code (prio is an
  * ANDROID_LOG_* value). Called on the logging thread. Pass NULL to remove. */
 void henge_set_log_sink(void (*sink)(int prio, const char *tag, const char *msg, void *user), void *user);
+void henge_log_message(int priority, const char *tag, const char *message);
 
 /* Drives the activity down (focus lost, window / queue destroyed, onPause, onStop, onDestroy) and
  * frees it. native_app_glue's onDestroy waits for android_main to return. */
@@ -169,5 +188,21 @@ void henge_activity_stop(henge_activity *activity);
 
 /* Nonzero if the bionic shim implements `name` (for compatibility reports). */
 int henge_shim_provides(const char *name);
+int henge_is_system_library(const char *name);
+/* henge-vm binds its live JavaVM / current thread's JNIEnv; NULL restores NativeActivity stubs. */
+void henge_jni_bind(void *java_vm, void *env);
+
+/* Claim this process for one guest, immediately before its first load. The claim is permanent,
+ * including after a failed load (dependencies/initializers may already have run). */
+int henge_guest_begin(char *err, size_t errlen);
+int henge_guest_started(void);
+/* Select a GLES implementation (EAGL by default, or e.g. ANGLE's resolver). Set before loading
+ * any guest. Every returned entry point passes through the generated AAPCS64 boundary. */
+void henge_gl_set_backend(void *(*resolve)(const char *name));
+
+/* Read the previous crash before installing a new recorder. Returns 1 if read, 0 if absent,
+ * -1 on malformed data/error. The record is consumed only after a successful read. */
+int henge_crash_read(const char *path, char *report, size_t reportlen);
+int henge_crash_install(const char *path, char *err, size_t errlen);
 
 #endif

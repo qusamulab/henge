@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "henge/apk.h"
 #include "internal.h" /* apk/: to check which compression method each entry uses */
@@ -57,6 +58,19 @@ static void check_entry(const henge_apk *apk, const char *name, const unsigned c
     if (rc) return;
     check(size == want_size && memcmp(data, want, size) == 0, "%s matches the source (%zu bytes)", name, size);
     free(data);
+    char output[] = "/tmp/henge-extract-XXXXXX";
+    int fd = mkstemp(output);
+    check(fd >= 0, "create extraction destination");
+    if (fd < 0) return;
+    close(fd);
+    rc = henge_apk_extract_file(apk, (size_t)i, output, err, sizeof err);
+    check(rc == 0, "file-backed extraction of %s", name);
+    if (!rc) {
+        data = slurp(output, &size);
+        check(size == want_size && !memcmp(data, want, size), "file-backed %s matches memory extraction", name);
+        free(data);
+    }
+    unlink(output);
 }
 
 int main(int argc, char **argv) {
@@ -127,6 +141,17 @@ int main(int argc, char **argv) {
         err[0] = '\0';
         rc = henge_apk_extract(mem, (size_t)i, &data, &size, err, sizeof err);
         check(rc != 0 && data == NULL, "corrupt deflate data is rejected (%s)", err);
+        char output[] = "/tmp/henge-bad-extract-XXXXXX";
+        int fd = mkstemp(output);
+        check(fd >= 0, "create preserved destination");
+        if (fd >= 0) {
+            check(write(fd, "keep", 4) == 4, "write preserved destination"); close(fd);
+            check(henge_apk_extract_file(mem, (size_t)i, output, err, sizeof err) != 0,
+                  "file-backed corrupt extraction fails");
+            data = slurp(output, &size);
+            check(size == 4 && !memcmp(data, "keep", 4), "failed extraction preserves destination");
+            free(data); unlink(output);
+        }
         henge_apk_close(mem);
     }
 

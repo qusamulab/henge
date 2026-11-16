@@ -29,6 +29,10 @@ $(B)/vm/%.o: vm/%.c
 	@mkdir -p $(@D)
 	$(COMPILE.c) -Ivm -c $< -o $@
 
+$(B)/vm/%.o: vm/%.S
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -MF $@.d -MT $@ -c $< -o $@
+
 $(B)/vm/core_dex.c: vm/core/henge-core.dex scripts/embed-dex.py
 	@mkdir -p $(@D)
 	python3 scripts/embed-dex.py $< $@ vm_core_dex

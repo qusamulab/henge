@@ -7,6 +7,7 @@
 #include "internal.h"
 
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <pthread.h>
@@ -64,6 +65,8 @@ int hr_is_system_lib(const char *name)
     return 0;
 }
 
+int henge_is_system_library(const char *name) { return name && hr_is_system_lib(name); }
+
 /* Length of the stem of an Android library name: "libfoo.so" / "libfoo.so.1" -> "libfoo". */
 static size_t stem_len(const char *name)
 {
@@ -89,6 +92,13 @@ static henge_image *find_linked(const char *name)
 }
 
 static char g_libpath[4096];
+static henge_elf_prepare g_prepare;
+static void *g_prepare_user;
+
+void henge_set_elf_prepare(henge_elf_prepare prepare, void *user)
+{
+    hr_lock(); g_prepare = prepare; g_prepare_user = user; hr_unlock();
+}
 
 void henge_set_library_path(const char *dirs)
 {
@@ -107,6 +117,8 @@ static int search_path(const char *name, char *out)
             snprintf(out, PATH_MAX, "%.*s/%.*s.dylib", (int)dl, d, (int)n, name);
             if (access(out, R_OK) == 0)
                 return 0;
+            snprintf(out, PATH_MAX, "%.*s/%s", (int)dl, d, name);
+            if (access(out, R_OK) == 0) return 0;
         }
         d += dl;
         if (*d == ':')
@@ -142,6 +154,20 @@ henge_image *hr_load_locked(const char *name, char *err, size_t errlen)
             hr_fail(err, errlen, "%s: not found in the henge library path", name);
             return NULL;
         }
+    }
+    int fd = open(path, O_RDONLY | O_CLOEXEC);
+    unsigned char magic[4] = {0};
+    if (fd >= 0) { (void)read(fd, magic, sizeof magic); close(fd); }
+    if (!memcmp(magic, "\177ELF", 4)) {
+        if (!g_prepare) {
+            hr_fail(err, errlen, "%s: ELF conversion/signing hook is not installed", path); return NULL;
+        }
+        char converted[PATH_MAX] = {0};
+        if (g_prepare(path, converted, sizeof converted, g_prepare_user, err, errlen)) return NULL;
+        if (!memchr(converted, 0, sizeof converted) || !converted[0]) {
+            hr_fail(err, errlen, "ELF conversion hook returned an invalid path"); return NULL;
+        }
+        memcpy(path, converted, sizeof path);
     }
     if (!dlopen(path, RTLD_NOW | RTLD_LOCAL)) {
         hr_fail(err, errlen, "dlopen %s: %s", path, dlerror());
@@ -197,16 +223,27 @@ static const struct mach_header *find_header(const char *path, char *resolved_ou
 
 typedef void (*init_fn)(int, char **, char **);
 
+static void missing_function(const char *name)
+{
+    hr_crash_missing(name);
+    fprintf(stderr, "henge: unsupported native function: %s\n", name);
+    extern void *henge_shim_lookup(const char *);
+    void (*log)(int, const char *, const char *) = henge_shim_lookup("__android_log_write");
+    if (log) log(7, "henge: unsupported native function", name);
+    abort();
+}
+
 /* Reads the converter's layout from the Mach-O load commands: H is the __TEXT,__elf address,
  * the island (if any) is __TEXT,__henge. */
 static int image_layout(const struct mach_header *mh, uint64_t *shift,
-                        const struct henge_island_hdr **island)
+                        const struct henge_island_hdr **island, uint64_t *island_size)
 {
     const struct mach_header_64 *h = (const struct mach_header_64 *)mh;
     if (h->magic != MH_MAGIC_64)
         return -1;
     *shift = 0;
     *island = NULL;
+    *island_size = 0;
     const uint8_t *lc = (const uint8_t *)(h + 1);
     for (uint32_t i = 0; i < h->ncmds; i++) {
         const struct load_command *c = (const struct load_command *)lc;
@@ -218,8 +255,12 @@ static int image_layout(const struct mach_header *mh, uint64_t *shift,
                     continue;
                 if (strncmp(sect[k].sectname, "__elf", 16) == 0)
                     *shift = sect[k].addr;
-                else if (strncmp(sect[k].sectname, "__henge", 16) == 0)
+                else if (strncmp(sect[k].sectname, "__henge", 16) == 0) {
+                    if (sect[k].addr < seg->vmaddr || sect[k].addr - seg->vmaddr > seg->filesize ||
+                        sect[k].size > seg->filesize - (sect[k].addr - seg->vmaddr)) return -1;
                     *island = (const struct henge_island_hdr *)((uintptr_t)mh + sect[k].addr);
+                    *island_size = sect[k].size;
+                }
             }
         }
         lc += c->cmdsize;
@@ -228,17 +269,44 @@ static int image_layout(const struct mach_header *mh, uint64_t *shift,
 }
 
 /* Fills the island's slots so patched svc / tpidr_el0 sites reach the runtime. */
-static int setup_island(const struct mach_header *mh, const struct henge_island_hdr *is,
+static int setup_island(const struct mach_header *mh, const struct henge_island_hdr *is, uint64_t size,
                         const char *path, char *err, size_t errlen)
 {
-    if (is->magic != HENGE_ISLAND_MAGIC || is->version != HENGE_ISLAND_VERSION)
+    if (size < sizeof *is || is->magic != HENGE_ISLAND_MAGIC || is->version != HENGE_ISLAND_VERSION)
         return hr_fail(err, errlen, "%s: unknown patch island version (reconvert it)", path);
+    if (is->stubs_offset < sizeof *is || is->stubs_offset > size ||
+        is->nstubs > (size - is->stubs_offset) / sizeof(struct henge_function_stub))
+        return hr_fail(err, errlen, "%s: invalid function-stub table", path);
+    uint64_t start = (uintptr_t)is - (uintptr_t)mh;
+    const struct henge_function_stub *stubs = (const void *)((const uint8_t *)is + is->stubs_offset);
+    for (uint32_t i = 0; i < is->nstubs; i++) {
+        uint64_t name = stubs[i].name_vmaddr, entry = stubs[i].entry_vmaddr;
+        if (name < start || name - start >= size || entry < start || entry - start > size ||
+            size - (entry - start) < 20 || (entry & 3) ||
+            !memchr((const char *)mh + name, 0, size - (name - start)))
+            return hr_fail(err, errlen, "%s: invalid function-stub entry", path);
+    }
+    int writable = 0;
+    const struct mach_header_64 *header = (const void *)mh;
+    const uint8_t *p = (const void *)(header + 1);
+    for (uint32_t i = 0; i < header->ncmds; i++) {
+        const struct load_command *lc = (const void *)p;
+        if (lc->cmd == LC_SEGMENT_64) {
+            const struct segment_command_64 *seg = (const void *)p;
+            uint64_t slot = is->slots_vmaddr;
+            if ((seg->initprot & 2) && slot >= seg->vmaddr && slot - seg->vmaddr <= seg->vmsize &&
+                8 * HENGE_NSLOTS <= seg->vmsize - (slot - seg->vmaddr) && !(slot & 7)) writable = 1;
+        }
+        p += lc->cmdsize;
+    }
+    if (!writable) return hr_fail(err, errlen, "%s: invalid patch-island slots", path);
     if (is->tpidr_sites && hr_thread_init(err, errlen) != 0)
         return -1;
     uintptr_t *slots = (uintptr_t *)((uintptr_t)mh + is->slots_vmaddr);
     slots[HENGE_SLOT_SVC] = (uintptr_t)hr_svc_entry;
     slots[HENGE_SLOT_TP_KEY] = hr_tp_key_offset();
     slots[HENGE_SLOT_TP_SLOW] = (uintptr_t)hr_tp_slow_entry;
+    slots[HENGE_SLOT_MISSING] = (uintptr_t)missing_function;
     return 0;
 }
 
@@ -274,7 +342,8 @@ static henge_image *link_new(const char *path, const char *resolved, const struc
 
     uint64_t shift;
     const struct henge_island_hdr *island;
-    if (image_layout(mh, &shift, &island) != 0) {
+    uint64_t island_size;
+    if (image_layout(mh, &shift, &island, &island_size) != 0) {
         hr_fail(err, errlen, "%s: not a henge image (no __TEXT,__elf section)", path);
         return NULL;
     }
@@ -319,6 +388,8 @@ static henge_image *link_new(const char *path, const char *resolved, const struc
     }
     memcpy(im->path, resolved, PATH_MAX);
     im->base = base;
+    im->macho_base = (uintptr_t)mh;
+    im->island = island;
     im->phdr = ph;
     im->phnum = eh->e_phnum;
     for (unsigned i = 0; i < eh->e_phnum; i++)
@@ -355,6 +426,7 @@ static henge_image *link_new(const char *path, const char *resolved, const struc
         case DT_INIT_ARRAYSZ: init_arraysz = d->d_val; break;
         case DT_SONAME: soname = d->d_val; break;
         case DT_FLAGS: flags = d->d_val; break;
+        case 0x6ffffffb: im->global = (d->d_val & 2) != 0; break; /* DT_FLAGS_1 / DF_1_GLOBAL */
         case DT_TEXTREL: textrel = 1; break;
         case DT_ANDROID_RELA: aps2 = d->d_val; break;
         case DT_ANDROID_RELASZ: aps2sz = d->d_val; break;
@@ -386,7 +458,7 @@ static henge_image *link_new(const char *path, const char *resolved, const struc
     /* Symbol count from DT_HASH if present (used only for bounds checks). */
     uint64_t nsyms = im->hash ? im->hash[1] : 0;
     im->nsyms = nsyms;
-    if (island && setup_island(mh, island, path, err, errlen) != 0)
+    if (island && setup_island(mh, island, island_size, path, err, errlen) != 0)
         goto bad;
     if (tls_ph && hr_tls_register(im, tls_ph, err, errlen) != 0)
         goto bad;
@@ -400,11 +472,10 @@ static henge_image *link_new(const char *path, const char *resolved, const struc
             goto bad;
         }
         const char *needed = im->strtab + d->d_val;
-        if (hr_is_system_lib(needed))
-            continue;
         char sub[512];
-        henge_image *dep = hr_load_locked(needed, sub, sizeof sub);
-        if (!dep) {
+        int system = hr_is_system_lib(needed);
+        henge_image *dep = system ? NULL : hr_load_locked(needed, sub, sizeof sub);
+        if (!system && !dep) {
             hr_fail(err, errlen, "%s: needed library %s: %s", path, needed, sub);
             goto bad;
         }
@@ -447,6 +518,7 @@ static henge_image *link_new(const char *path, const char *resolved, const struc
     while (*tail)
         tail = &(*tail)->next;
     *tail = im;
+    hr_crash_register(im);
 
     /* 3. Initializers, with bionic's (argc, argv, envp) = (0, NULL, NULL). */
     if (init)

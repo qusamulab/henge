@@ -3,6 +3,7 @@
 #include "shim.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 static uint32_t gnu_hash_name(const char *s)
 {
@@ -29,6 +30,8 @@ static int sym_exported(const henge_image *im, const Elf64_Sym *s, const char *n
 {
     unsigned bind = ELF64_ST_BIND(s->st_info);
     if (s->st_shndx == SHN_UNDEF || (bind != STB_GLOBAL && bind != STB_WEAK))
+        return 0;
+    if ((s->st_other & 3) == 1 || (s->st_other & 3) == 2) /* INTERNAL / HIDDEN */
         return 0;
     if (s->st_name >= im->strsz)
         return 0;
@@ -129,5 +132,54 @@ int hr_resolve_global(const char *name, uintptr_t *out)
             return 1;
         }
     }
+    return 0;
+}
+
+int hr_resolve_scope(henge_image *root, const char *name, int globals,
+                     henge_image **owner, const Elf64_Sym **sym, uintptr_t *addr)
+{
+    if (owner) *owner = NULL;
+    if (sym) *sym = NULL;
+    if (globals) {
+        for (henge_image *im = hr_images; im; im = im->next) {
+            if (!im->global) continue;
+            const Elf64_Sym *s = hr_lookup_sym(im, name);
+            if (!s) continue;
+            if (owner) *owner = im;
+            if (sym) *sym = s;
+            if (addr) *addr = hr_sym_addr(im, s);
+            return 1;
+        }
+    }
+    size_t cap = 16, head = 0, tail = 0;
+    henge_image **queue = malloc(cap * sizeof *queue);
+    if (!queue) return -1;
+    queue[tail++] = root;
+    while (head < tail) {
+        henge_image *im = queue[head++];
+        const Elf64_Sym *s = im ? hr_lookup_sym(im, name) : NULL;
+        void *shim = im ? NULL : henge_shim_lookup(name);
+        if (s || shim) {
+            if (owner) *owner = im;
+            if (sym) *sym = s;
+            if (addr) *addr = s ? hr_sym_addr(im, s) : (uintptr_t)shim;
+            free(queue);
+            return 1;
+        }
+        if (!im) continue;
+        for (size_t i = 0; i < im->ndeps; i++) {
+            size_t k = 0;
+            while (k < tail && queue[k] != im->deps[i]) k++;
+            if (k < tail) continue;
+            if (tail == cap) {
+                cap *= 2;
+                henge_image **next = realloc(queue, cap * sizeof *next);
+                if (!next) { free(queue); return -1; }
+                queue = next;
+            }
+            queue[tail++] = im->deps[i];
+        }
+    }
+    free(queue);
     return 0;
 }

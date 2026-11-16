@@ -305,12 +305,8 @@ static EGLHandle he_eglGetCurrentDisplay(void) { return t_context ? HE_DISPLAY :
 
 static void *he_eglGetProcAddress(const char *name)
 {
-    void *p = NULL;
-    /* the runtime's index first (our overrides), then the OpenGLES framework */
-    if (!strncmp(name, "gl", 2)) p = dlsym(RTLD_DEFAULT, name);
     extern void *henge_shim_lookup(const char *);
-    void *own = henge_shim_lookup(name);
-    return own ? own : p;
+    return henge_shim_lookup(name);
 }
 
 /* ---- GLES calls whose meaning changes because Android has a default framebuffer ---- */

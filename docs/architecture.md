@@ -43,7 +43,7 @@ henge also contains an interpreter (`henge-vm`, §8), but only for Dalvik byteco
 │  ┌──────────────────────────────── runtime ────────────────────────────────┐                            │
 │  │ libhenge-bionic   libc / libm / libdl / liblog compatibility            │                            │
 │  │ libhenge-android  NativeActivity / AAsset / AInput / ANativeWindow / JNI │                            │
-│  │ EGL / GLES        EGL on EAGL; GLES passed through to iOS (ANGLE later)  │                            │
+│  │ EGL / GLES        EGL on EAGL; generated GLES ABI wrappers (ANGLE later)  │                            │
 │  │ Audio             AAudio → AudioUnit (OpenSL ES not yet)                 │                            │
 │  └─────────────────────────────────────────────────────────────────────────┘                            │
 └─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -58,7 +58,7 @@ henge also contains an interpreter (`henge-vm`, §8), but only for Dalvik byteco
 | Mini linker | C | After `dlopen`, reads the ELF dynamic info, resolves relocations, and calls initializers |
 | bionic shim (`runtime/shim*.c`) | C + asm | A table of bionic function names bridged to Darwin's libSystem. Absorbs ABI differences ([abi-differences.md](../research/abi-differences.md)). Compiled into the host app, not a separate library |
 | NDK shim (`runtime/shim_android.c`, `activity.c`, `assets.c`, `app/HengeHost/Platform/`) | C/ObjC | Implements NDK APIs (`libandroid.so`, EGL, AAudio) with UIKit / OpenGL ES / AudioUnit |
-| `henge-vm` (`vm/`) | C + Java | Dalvik bytecode interpreter with henge's own `java.*` and `android.*` classes (§8). Not yet connected to the native runtime or the iOS host |
+| `henge-vm` (`vm/`) | C + Java | Dalvik bytecode interpreter with henge's own `java.*` and `android.*` classes (§8). Connected to native libraries through JNI and to the iOS host; Android class-library coverage remains limited |
 | Host app | Swift | APK management UI, runs conversion and signing, hosts the game view |
 
 ## 3. Conversion (henge-convert)
@@ -66,7 +66,7 @@ henge also contains an interpreter (`henge-vm`, §8), but only for Dalvik byteco
 Details in [m1-elf-to-macho.md](m1-elf-to-macho.md). Key points:
 
 1. Repack ELF `PT_LOAD` segments into Mach-O `__TEXT` (R / RX) and `__DATA` (RW) **while preserving their relative positions**. Android `.so` files are position-independent and use page-relative references via `adrp`, so as long as relative positions are preserved they work wherever they are loaded.
-2. Shift everything by the size of the Mach-O header (16 KiB). A shift that is a multiple of 4 KiB does not change `adrp` results.
+2. Shift everything by the header area (at least 16 KiB, enlarged for patch islands and missing-function stubs). A shift that is a multiple of 4 KiB does not change `adrp` results.
 3. Code patches (done before signing, so the code can be freely rewritten):
    - Linux `svc #0` → `bl` to the shim's syscall stub
    - `mrs xN, tpidr_el0` → replace with TLS access via the shim if needed (depends on the verification results)
@@ -84,15 +84,15 @@ Since November 2025, Google Play has required 16 KiB page support for new apps a
 ## 4. Signing
 
 - The user exports their Apple Development certificate and private key as a `.p12` and imports it in the host app's **Signing** tab. The `.p12` and its password are stored in the device's Keychain.
-- Converted dylibs are written to the app container (`Library/Application Support/henge/run/<package>/`) and signed there with `convert/sign.c` / `cms.c` / `signer_sec.c`.
+- Converted dylibs are cached under `Library/Caches/henge/artifacts-v4/` and signed there with `convert/sign.c` / `cms.c` / `signer_sec.c`.
 - The host app and the dylibs share a Team ID, so they pass library validation. An ad hoc signature is rejected on a device (V3).
 - macOS and the iOS Simulator accept the built-in ad hoc signature.
 
-Not done yet:
+Current status and remaining constraints:
 
 - **Free Apple ID certificates** (the certificate SideStore / AltStore used at install time, as LiveContainer does). Only a paid developer identity has been tried (V3). Until this is verified, henge needs a paid account, and users without a Mac cannot get a `.p12`.
-- **Conversion cache.** `ConvertRunner` deletes the run directory and converts and signs every library on every launch. The target is: convert at import, key the output by (APK hash, converter version, certificate), and re-sign only when the certificate changes (free certificates expire after 7 days).
-- **Memory.** `henge_convert` and the signer each take and return whole buffers, so a library is in memory three times (ELF, Mach-O, signed Mach-O). A 100 MiB engine library needs a file-backed (mmap) pipeline.
+- **Implemented cache.** Import prepares unsigned libraries keyed by APK SHA-256, converter version and target platform. A separate signed cache is keyed by certificate SHA-256 and signing version, with a 24-hour maximum reuse age. Cache hits verify file hashes. This age limit is a refresh policy; it does not validate certificate or provisioning expiration. App data stays in `Application Support/henge/data/<package>/`, outside the cache.
+- **Implemented file pipeline.** APK extraction, conversion and signing have file-backed mmap APIs with temporary-file publication. Errors preserve existing outputs. Signing flushes and invalidates shared pages before loading, as required by Darwin code-signing validation. The buffer APIs remain available. Peak resident memory for a 100 MiB engine has not yet been measured.
 - **Key isolation.** Converted code runs in the host process with the host's entitlements, so it can read the `.p12` and password from the Keychain. Only process separation (§5.1) prevents this; until then, "only run APKs you trust" is the only protection.
 
 ## 5. Loading and execution
@@ -102,43 +102,46 @@ Not done yet:
    - System libraries (`libc.so`, `libm.so`, `libdl.so`, `liblog.so`, `libandroid.so`, `libEGL.so`, `libGLESv2.so`, `libGLESv3.so`, `libOpenSLES.so`, `libaaudio.so`, `libz.so`) → henge shims
 2. **dlopen**: `dlopen` the converted dylib. dyld only maps code and data and verifies the signature; it does not interpret the ELF contents.
 3. **Find the base address**: Look up our dylib by path in dyld's image list (`_dyld_get_image_header`).
-4. **Relocation**: The mini linker rewrites the GOT and pointers in `__DATA`. Symbols are looked up in the order "shims → every linked image in load order" (§5.2).
+4. **Relocation**: The mini linker rewrites the GOT and pointers in `__DATA`. Relocations use the global group followed by the image and its breadth-first `DT_NEEDED` tree (§5.2).
 5. **Initialization**: Call `DT_INIT`, then `DT_INIT_ARRAY`.
-6. **Launch**: Call the entry point such as `ANativeActivity_onCreate` (NativeActivity) or `SDL_main`.
+6. **Launch**: Call `ANativeActivity_onCreate`, or start the manifest's Java launcher Activity on henge-vm and let its `System.loadLibrary` / JNI calls reach native code.
 
 If the app calls `dlopen("libfoo.so")` at runtime, the shim's `dlopen` returns the converted dylib using the same steps.
 
-### 5.1 Process model (open decision)
+### 5.1 Process model
 
-Converted images are never unloaded: dyld keeps the mapping, `hr_images` is process-wide, and initializers have run. The current host allows a second **Convert & Run** in the same process, which is wrong in two ways:
+Converted images are never unloaded: dyld mappings, native globals, initialized libraries and guest pthreads can survive Stop. The host enforces **one process runs one guest, once**, claiming the process immediately before its first guest load, including when that load later fails. A second run shows **Restart Required**. Diagnostics also claim the process; the M1 test no longer runs automatically on ordinary app launch.
 
-- A second APK that has a library with the same soname (`libmain.so`) gets the first APK's image back (`find_linked` in `runtime/linker.c`).
-- Running the same APK again calls `ANativeActivity_onCreate` on globals left over from the previous run.
+Stop delivers lifecycle callbacks and ends the host frame loop. It cannot cancel arbitrary guest threads. A VM that has loaded a JNI library, its DEX backing buffers, and its host/window context are retained until process exit because native code can keep JavaVM pointers and attach again later. Pure Java test VMs can still be destroyed and recreated.
 
-Proposed rule: **one process runs one guest, once.** Two ways to get there:
+The user currently restarts henge from the app switcher. Automated relaunch and signing-key isolation remain open decisions:
 
 | Option | How | Pros | Cons |
 | --- | --- | --- | --- |
 | Relaunch the host | Record the pending launch, exit, start again into the guest (LiveContainer's original model) | Simple; full app memory limit | The library UI and the guest cannot coexist; visible restart |
 | Guest in an app extension | The host stays up; an extension process loads and runs the guest | Fresh process per launch; the extension can be kept out of the Keychain group that holds the signing identity (§4) | Lower memory limit for extensions (to be measured); rendering and input must cross the process boundary |
 
-Until this is decided, the host should at least refuse a second run in the same process.
+The single-use guard is implemented and concurrency-tested. It does not provide process or Keychain isolation.
 
-### 5.2 Symbol lookup (gap)
+### 5.2 Symbol lookup
 
-`hr_resolve_global` searches the shim first, then every linked image in load order. bionic searches the global group, then **the library itself, then its `DT_NEEDED` tree breadth-first**. The difference matters when two libraries export the same name, typically two libraries that each link libc++ statically and export `operator new` or `__cxa_*`: a library can bind to another library's copy. Target: the bionic order, with the shim taking the place of `libc.so` and the other system libraries in the `DT_NEEDED` tree. `dlsym(handle)` already walks the tree breadth-first (`runtime/dl.c`).
+Relocations search `DF_1_GLOBAL` / `RTLD_GLOBAL` images first, then the current image and its `DT_NEEDED` closure breadth-first. Shim-backed system libraries occupy their positions in that tree. Hidden/internal exports are excluded; local/protected definitions bind within their image. `dlsym(handle)` shares the traversal, with cycle deduplication and no fixed dependency-count cutoff.
 
-### 5.3 Undefined symbols (gap)
+This is not a complete bionic linker: actual `DT_NEEDED` load cycles are rejected, symbol versions/namespaces are not modeled, and `RTLD_DEFAULT` / `RTLD_NEXT` retain the older process-wide shim-first lookup. The scope regression covers unrelated local images, global precedence, BFS, system dependencies and 600 dependency entries.
 
-Any undefined non-weak symbol fails the whole load. The shim exports about 200 names; a real engine library imports several hundred to a thousand, so finding the missing ones costs one failed launch each. Target:
+### 5.3 Undefined symbols and shim generation
 
-- The converter already knows every import. For names the shim lacks, emit one stub per name into the patch island before signing; a stub reports its name and aborts when called. The library then loads, and only the functions actually reached need to exist.
-- Generate the pass-through part of the shim table from bionic's symbol lists, classified by ABI ([abi-differences.md](../research/abi-differences.md)): identical signature and no `errno` → direct pointer; sets `errno` → generated wrapper; everything else → handwritten.
-- `henge-convert` already prints the missing imports; show the same report in the host app's APK detail screen.
+Before signing, the converter emits a static named abort stub for every strong `STT_FUNC` import in patch-island version 2. The linker uses a stub only if real symbol resolution fails. An unused unsupported function therefore does not prevent loading. Calling it logs its name, adds it to the crash record and aborts. Weak imports remain zero. Unresolved data, TLS and unknown symbol types still fail loading; treating these as callable would corrupt memory.
 
-### 5.4 Crash reporting (gap)
+The APK detail screen lists imports and unresolved symbols across each dependency closure, distinguishes callable stubs from load blockers, and reports conversion errors and missing libraries. This static report cannot predict reflection, symbol versions or actual runtime paths.
 
-A fault in guest code kills the host with no information. The host needs a signal handler that records the faulting image and offset (`hr_image_for_addr`) and the registers, so that the next launch can show "crashed in `libgame.so` + 0x1234". Android code's own `sigaction` is not shimmed yet.
+`scripts/libc-api.json` is a reviewed LP64 classification of the supported bionic names: direct ABI-compatible entry, generated errno wrapper, generated error-code/math wrapper, or handwritten adapter. `scripts/generate-libc.py` emits `runtime/libc_generated.c`; it does not turn unreviewed libc symbols into arbitrary Darwin pointers. This is a curated subset, not full bionic coverage.
+
+### 5.4 Crash reporting
+
+The host installs a recorder for SIGSEGV/BUS/ILL/FPE/ABRT/TRAP before running a guest. The handler writes a fixed binary record with PC/LR/SP/FP, x0–x28, fault address, image/ELF base and the last missing-function name to a preopened file, using immutable image snapshots. It restores the default action and re-raises the signal so the OS can produce its own report. On the next launch, the APK screen displays and shares the consumed record.
+
+Subprocess tests exercise a trap inside converted code and a missing-function abort. SIGKILL (including code-signature enforcement), out-of-memory termination and stack exhaustion without a usable signal stack cannot be recorded this way. Guest `sigaction` / Linux signal-context conversion remain unsupported.
 
 ## 6. Android compatibility layer
 
@@ -147,7 +150,7 @@ A fault in guest code kills the host with no information. The host needs a signa
 - Export functions under bionic names; implement them by calling Darwin's libSystem.
 - Convert struct differences (`stat`, `dirent`, `sigaction`, `pthread_mutex_t`, etc.) and constant differences (`errno`, `open` / `mmap` flags, signal numbers).
 - **ABI differences are the biggest pitfall.** Variadic arguments, `va_list`, `long double`, etc. are completely different from Darwin. See [abi-differences.md](../research/abi-differences.md).
-- **`errno` is not uniform yet (gap).** Android code reads `errno` through `__errno()`, which returns a henge thread-local holding Linux values. Wrapped functions (`read`, `write`, ...) translate into it; functions exported as direct pointers to libSystem (`strtoul`, `fwrite`, ...) set Darwin's `errno` instead, which Android code never sees. Every function that can set `errno` needs a wrapper (§5.3).
+- **`errno`.** Android reads Linux values through henge's thread-local `__errno()`. Generated wrappers cover allocation, string-number conversion, stdio, time and libm: they isolate Darwin errno, translate newly reported errors and preserve guest errno on successful calls. Math wrappers also translate floating-point domain/range exceptions because Darwin libm does not consistently set errno. Struct/constant adapters retain handwritten handling.
 
 ### NDK API
 
@@ -156,7 +159,7 @@ A fault in guest code kills the host with no information. The host needs a signa
 | `ANativeActivity` and lifecycle callbacks | `UIViewController` lifecycle |
 | `ANativeWindow` | `UIView` backed by a `CAEAGLLayer` |
 | EGL | Implemented on EAGL (`app/HengeHost/Platform/EGLShim.m`); framebuffer 0 is mapped to the layer's framebuffer |
-| GLES 2 and 3.0 | Passed through to iOS's OpenGL ES (see below) |
+| GLES 2 and 3.0 | Generated ABI boundary to iOS OpenGL ES (see below) |
 | Vulkan | Not done. MoltenVK |
 | `AInputQueue` / `AInputEvent` | `UITouch` (done); key events and `GCController` not done |
 | `AAssetManager` | Read `assets/` from the APK |
@@ -167,25 +170,19 @@ A fault in guest code kills the host with no information. The host needs a signa
 
 ### GLES boundary
 
-The original plan was ANGLE on Metal. iOS still ships OpenGL ES, so M3 took the shorter path: any `gl[A-Z]*` name the shim does not define resolves with `dlsym` to the system framework. Two consequences:
+The default backend is iOS OpenGL ES, with EGL implemented on EAGL. `scripts/gl-api.json` pins the GLES 2.0 / 3.0 core signatures extracted from Khronos `gl.xml`; `scripts/generate-gl.py` generates typed wrappers. GP parameters use Android-sized incoming slots and are narrowed before the Darwin backend call; floating-point parameters retain their types. This handles the packed stack arguments of `glBlitFramebuffer`, `glTexSubImage3D` and narrow `GLboolean` arguments. A converted NDK test verifies these paths on macOS with a deterministic backend.
 
-- **Ceiling.** Apple's OpenGL ES stops at 3.0 and is deprecated. A game that needs ES 3.1+ (compute shaders) or an extension Apple lacks needs ANGLE; if Apple removes OpenGL ES, everything does.
-- **ABI holes in the pass-through (gap).** A direct pointer is only correct when both ABIs pass the arguments the same way. They differ for the 9th and later arguments (8-byte slots on Android, packed by natural alignment on Darwin) and for arguments narrower than 32 bits (`GLboolean`). `glBlitFramebuffer` (10 `int`-sized arguments: `filter` is at `sp+8` for the caller, `sp+4` for the callee), `glTexSubImage3D` and `glCompressedTexSubImage3D` are affected. This follows from the ABI rules and has not been reproduced on a device. ANGLE would not change it, because ANGLE is also built for Darwin.
-
-Target: generate the GL boundary from Khronos's `gl.xml`. Each function is classified as pass-through or thunk (re-pack stack arguments, mask narrow arguments), and the backend behind it (EAGL now, ANGLE later) becomes a build choice.
+`henge_gl_set_backend` selects a resolver before guest execution, allowing a future ANGLE backend. Unsupported extensions and absent backend functions return no pointer, including through `eglGetProcAddress`; there is no unreviewed raw `dlsym` fallback. Apple's backend still stops at ES 3.0. ANGLE, ES 3.1+, Vulkan and arbitrary GLES extensions are not implemented.
 
 ### JNI
 
-The native runtime's `JavaVM` / `JNIEnv` (`runtime/jni.c`) is a stub: every function returns 0 / `NULL`, `GetVersion` reports 1.6, and `AttachCurrentThread` / `GetEnv` hand out the one environment. Code that only probes JNI keeps running; code that needs a Java object fails.
-
-That is enough for a pure `NativeActivity` app and for nothing else. SDL2, Godot, Unity, Cocos and `GameActivity` all start in a Java `Activity` and call back and forth through JNI, so real JNI is the entry condition for M4, not something that waits for M5. The plan is in §8.
+Java activities use the JNI bridge in `vm/jni.c`, described below. The standalone `runtime/jni.c` fallback still supplies a minimal probing environment for pure NativeActivity apps that do not start henge-vm. That fallback does not provide Java objects.
 
 ## 7. Code added at runtime
 
-Games that download native code later do not work with AOT conversion alone. However, henge has a signer on the iPhone, so the following may be possible (to be verified):
+When `henge_load` or Android `dlopen` encounters an ELF file, it calls the host's `henge_set_elf_prepare` hook. The iOS host hashes the ELF, converts it through the file-backed converter, signs it using the session's retained identity, and returns a persistent cache path before normal loading. Bare library names can also find unconverted `.so` files along the configured library path. Hosts without a hook receive an explicit error.
 
-- When the shim's `dlopen` receives an unconverted ELF, convert, sign, and load it on the spot.
-- If a newly signed file can be `dlopen`ed in the same process, no restart is needed.
+`make test-files` converts, signs and immediately loads a previously unconverted ELF inside one macOS process. Equivalent loading after native guest execution begins is also covered there. iPhone acceptance of libraries newly signed during guest execution remains V4 and requires a device.
 
 Self-unpacking packers and DRM that generates code in memory are out of scope.
 
@@ -195,7 +192,7 @@ The original plan was to port ART and `dex2oat` and AOT-compile dex on the iPhon
 
 ART is dropped: its size, its reliance on SIGSEGV for null and stack checks, and the unverified `dex2oat` questions (V7) are avoided, at the price of interpreter speed and of writing the class library.
 
-### 8.1 Role (proposed)
+### 8.1 Role
 
 In the games henge targets, Java is glue: the `Activity`, lifecycle, input forwarding, asset and preference access. The frame loop is native. So:
 
@@ -203,22 +200,19 @@ In the games henge targets, Java is glue: the `Activity`, lifecycle, input forwa
 - henge does not reimplement each engine's Java side in C. `SDLActivity.java` or `GodotActivity` from the APK run as they are.
 - Scope of `android.*`: what engine glue uses (`Activity`, `SurfaceView` / `GLSurfaceView`, input events, `AssetManager`, `SharedPreferences`, `AudioTrack` / `SoundPool`, `Handler` / `Looper`, `Build`, display metrics). The `View` / layout / resource system for ordinary apps is a non-goal.
 
-### 8.2 The JNI bridge (not implemented)
+### 8.2 The JNI bridge
 
-`vm/` and `runtime/` do not know each other today: the VM has no `System.loadLibrary`, and `runtime/jni.c` is a stub. Connecting them needs:
+`System.loadLibrary` / `System.load` call `henge_load`, then `JNI_OnLoad`. JNI provides method/field lookup, object creation, virtual/nonvirtual/static calls, primitive/object arrays, modified UTF-8 / UTF-16 strings, pending exceptions and native registration. Local/global references are generation-tagged opaque tokens; strong refs and acquired array/string contents are pinned as GC roots, and weak refs are cleared before handle reuse.
 
-| Piece | Notes |
-| --- | --- |
-| `System.loadLibrary` | → `henge_load`, then call `JNI_OnLoad` |
-| A real `JNIEnv` over the VM | `FindClass`, `Get*ID`, field access, strings, arrays, `RegisterNatives`, exceptions. `jobject` maps onto the VM's handles (local and global reference tables; the table does not move objects) |
-| `Call*Method` (variadic) | Called from Android code with AAPCS64 variadics into Darwin-compiled code: asm entry stubs that spill the registers into an AAPCS64 `va_list`, then share the `...V` implementations (same technique as the `printf` shims) |
-| VM → native calls | A `native` method bound by `RegisterNatives` or by `Java_*` name has an arbitrary signature. One static asm bridge loads x0–x7, d0–d7 and the stack from the method's shorty. No code generation is needed |
-| Threads | Release the global lock around native calls and blocking operations; `AttachCurrentThread` creates a VM `Thread` for a native thread |
-| GC roots | Local references per native frame, global references, pinned array and string contents |
+Android variadic calls use generated static assembly entries that spill argument registers into an AAPCS64 `va_list` for the V implementations. VM-to-native calls use one static assembly bridge that packs GP/FP registers and 8-byte stack slots from the method descriptor. No executable memory or JIT is allocated. The VM lock is released during native calls and blocking sleeps; attached pthreads get their own Thread and JNIEnv and can call back into Java. Failed JNI_OnLoad is remembered and its native registrations are rolled back.
+
+`make test-jni` covers registration, Java_* lookup, constructors/fields, strings, array leases/regions, GC, A/V/variadic calls, 10 GP plus 10 FP parameters in both directions and a native-thread Java callback. `make test-vm-jni-host` starts a real APK launcher Activity, loads its converted native library, calls JNI and finishes its lifecycle on macOS. The iOS host routes Java launchers to this same host, forwards touch/resize and uses the EAGL surface for GLSurfaceView. The iOS build is validated; device execution of this new route remains unverified.
+
+Remaining JNI/class-runtime limitations: reflection conversion, DefineClass, monitors and direct ByteBuffer JNI operations raise UnsupportedOperationException; Java Thread.start still runs synchronously, Object wait/notify and interpreter monitor semantics are incomplete, and arbitrary engine SurfaceView/platform-service glue is not implemented. Attached native pthreads are supported; full Android/Java thread scheduling is not. An SDL2/Godot APK is still needed to drive the next compatibility work.
 
 ### 8.3 Class library (open decision)
 
-`vm/core` is written from scratch (about 130 classes). R8-processed Kotlin and engine glue reach into `java.util.concurrent`, reflection, `String.format`, `java.io` / `java.nio`, and more. Either keep growing it, driven by what target APKs reference, or adopt AOSP libcore (complete, but tied to ART internals and to native libraries, and GPLv2 with the Classpath exception). Whichever is chosen, a tool that lists the classes and methods an APK's dex references but henge-vm lacks is needed first, the same way `henge-convert` lists missing native imports.
+`vm/core` is written from scratch (about 130 classes). R8-processed Kotlin and engine glue reach into `java.util.concurrent`, reflection, `String.format`, `java.io` / `java.nio`, and more. Either keep growing it, driven by what target APKs reference, or adopt AOSP libcore (complete, but tied to ART internals and to native libraries, and GPLv2 with the Classpath exception). For now the class library remains henge's own implementation. `python3 scripts/check-dex.py app.apk` lists missing class, method and field references across all root `classes*.dex` entries, the APK definitions and both bundled class libraries, without executing guest code. It resolves inherited members, skips VM-ignored Dalvik metadata annotations, supports `--json`, and exits 1 for missing references or 2 for malformed input. Reflection and service behavior still require runtime testing.
 
 ## 9. Constraints and risks
 

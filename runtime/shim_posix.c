@@ -296,6 +296,13 @@ void hr_set_errno(int linux_errno)
     t_errno = linux_errno;
 }
 
+int hr_errno_begin(void) { int saved = errno; errno = 0; return saved; }
+void hr_errno_end(int saved)
+{
+    if (errno) hr_set_errno(hr_errno_to_linux(errno));
+    errno = saved;
+}
+
 static int *shim_errno(void)
 {
     return &t_errno;

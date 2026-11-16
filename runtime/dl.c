@@ -32,7 +32,6 @@ static int is_image(const void *h)
 
 static void *shim_dlopen(const char *name, int flags)
 {
-    (void)flags; /* RTLD_LAZY/NOW/LOCAL/GLOBAL: henge binds everything immediately */
     if (!name)
         return &g_system; /* dlopen(NULL): the "main program" */
     if (hr_is_system_lib(name))
@@ -40,6 +39,7 @@ static void *shim_dlopen(const char *name, int flags)
     char err[512];
     hr_lock();
     henge_image *im = hr_load_locked(name, err, sizeof err);
+    if (im && (flags & 0x100)) im->global = 1; /* bionic RTLD_GLOBAL */
     hr_unlock();
     if (!im)
         set_error(err);
@@ -55,23 +55,10 @@ static void *android_dlopen_ext(const char *name, int flags, const void *extinfo
 /* Breadth-first over an image and its dependencies, as bionic's dlsym(handle) does. */
 static void *lookup_from(henge_image *root, const char *name)
 {
-    henge_image *queue[256];
-    size_t head = 0, tail = 0;
-    queue[tail++] = root;
-    while (head < tail) {
-        henge_image *im = queue[head++];
-        const Elf64_Sym *s = hr_lookup_sym(im, name);
-        if (s)
-            return (void *)hr_sym_addr(im, s);
-        for (size_t i = 0; i < im->ndeps && tail < 256; i++) {
-            int seen = 0;
-            for (size_t k = 0; k < tail; k++)
-                seen |= queue[k] == im->deps[i];
-            if (!seen)
-                queue[tail++] = im->deps[i];
-        }
-    }
-    return henge_shim_lookup(name);
+    uintptr_t addr = 0;
+    int rc = hr_resolve_scope(root, name, 0, NULL, NULL, &addr);
+    if (rc < 0) set_error("dlsym: out of memory");
+    return rc == 1 ? (void *)addr : NULL;
 }
 
 static void *shim_dlsym(void *handle, const char *name)

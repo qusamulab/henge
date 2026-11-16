@@ -59,6 +59,14 @@ final class M1Runner: ObservableObject {
         guard state != .running else { return }
         state = .running
         report = M1Report()
+        var error = [CChar](repeating: 0, count: 512)
+        guard henge_guest_begin(&error, error.count) == 0 else {
+            let message = String(cString: error)
+            report.checks = [M1Check(group: .load, pass: false, title: "Fresh process", detail: message,
+                                    expected: nil, logLine: "FAIL  \(message)")]
+            state = .finished
+            return
+        }
         let startCounter = carriedCounter
         Task.detached(priority: .userInitiated) {
             let result = M1Session(startCounter: startCounter).run()

@@ -146,6 +146,7 @@ static void trace(VM *vm, struct gray *g, Object *o)
 
 void vm_gc(Thread *self)
 {
+    vm_enter(self);
     VM *vm = self->vm;
     struct gray g = {0};
     vm->gc_wanted = 0;
@@ -172,6 +173,7 @@ void vm_gc(Thread *self)
         if (o) trace(vm, &g, o);
     }
     free(g.items);
+    vm_jni_sweep_weak(vm);
 
     size_t live = 0;
     for (uint32_t r = 1; r < vm->table_size; r++) {
@@ -190,4 +192,5 @@ void vm_gc(Thread *self)
     vm->live_bytes = live;
     vm->gc_threshold = live > SIZE_MAX / 2 ? SIZE_MAX
                      : live * 2 > GC_MIN_THRESHOLD ? live * 2 : GC_MIN_THRESHOLD;
+    vm_leave(self);
 }

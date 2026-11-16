@@ -63,9 +63,10 @@ NATIVE(object_notify) { UNUSED; return 0; }
 
 NATIVE(thread_sleep)
 {
-    (void)t;
     uint64_t ms = vm_wide(a);
+    unsigned depth = vm_suspend(t);
     if (ms > 0) usleep((useconds_t)(ms > 3600000 ? 3600000000u : ms * 1000));
+    vm_resume(t, depth);
     return 0;
 }
 
@@ -727,6 +728,15 @@ NATIVE(system_millis) { UNUSED; struct timeval tv; gettimeofday(&tv, NULL); retu
 NATIVE(system_nanos) { UNUSED; struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec; }
 NATIVE(system_identity_hash) { if (!a[0]) return 0; return identity_hash(obj(t, a[0]), a[0]); }
 NATIVE(system_exit) { UNUSED; exit((int)a[0]); }
+NATIVE(system_gc) { (void)a; vm_gc(t); return 0; }
+NATIVE(system_load_library)
+{
+    if (!a[0]) { vm_throw(t, "Ljava/lang/NullPointerException;", "library name"); return 0; }
+    char *name = vm_string_utf8(t->vm, a[0]);
+    vm_jni_load(t, name);
+    free(name);
+    return 0;
+}
 
 /* ---- PrintStream ---- */
 
@@ -836,5 +846,8 @@ void vm_register_core_natives(VM *vm)
     R("Ljava/lang/System;", "nanoTime", "()J", system_nanos);
     R("Ljava/lang/System;", "identityHashCode", "(Ljava/lang/Object;)I", system_identity_hash);
     R("Ljava/lang/System;", "exit", "(I)V", system_exit);
+    R("Ljava/lang/System;", "gc", "()V", system_gc);
+    R("Ljava/lang/System;", "loadLibrary", "(Ljava/lang/String;)V", system_load_library);
+    R("Ljava/lang/System;", "load", "(Ljava/lang/String;)V", system_load_library);
     R("Ljava/io/PrintStream;", "write", "(ILjava/lang/String;)V", print_write);
 }

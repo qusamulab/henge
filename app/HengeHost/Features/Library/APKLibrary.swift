@@ -36,7 +36,9 @@ final class APKLibrary: ObservableObject {
             var errors: [String] = []
             for source in sources {
                 do {
-                    try storage.importFile(from: source)
+                    let imported = try storage.importFile(from: source)
+                    // Keep unsupported APKs inspectable; conversion diagnostics belong to their detail.
+                    _ = try? APKPreparation.prepare(imported)
                 } catch {
                     errors.append("\(source.lastPathComponent): \(error.localizedDescription)")
                 }

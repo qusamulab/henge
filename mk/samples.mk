@@ -1,6 +1,26 @@
 # ---- samples (Android NDK) ----
 samples: $(B)/samples/libadd.so $(B)/samples/libpatch.so $(B)/samples/libdep.so $(B)/samples/libshim.so ## build sample .so files with the NDK
 
+$(B)/samples/libmissing.so: samples/libmissing/main.c
+	@mkdir -p $(@D)
+	$(NDK_CC) $(NDK_FLAGS) -o $@ $<
+
+$(B)/samples/libmissingdata.so: samples/libmissing/main.c
+	@mkdir -p $(@D)
+	$(NDK_CC) $(NDK_FLAGS) -DMISSING_DATA -o $@ $<
+
+$(B)/samples/libgl.so: samples/libgl/main.c
+	@mkdir -p $(@D)
+	$(NDK_CC) $(NDK_FLAGS) -o $@ $< -lGLESv3
+
+$(B)/samples/libjnitest.so: samples/libjni/main.c
+	@mkdir -p $(@D)
+	$(NDK_CC) $(NDK_FLAGS) -o $@ $<
+
+$(B)/samples/libjnifail.so: samples/libjni/fail.c
+	@mkdir -p $(@D)
+	$(NDK_CC) $(NDK_FLAGS) -o $@ $<
+
 $(B)/samples/libadd.so: samples/libadd/add.c
 	@mkdir -p $(@D)
 	$(NDK_CC) $(NDK_FLAGS) -o $@ $<
@@ -54,6 +74,11 @@ define build-apk
 endef
 
 samples-apk: $(B)/samples/sample.apk $(B)/samples/native.apk $(B)/samples/game.apk ## build the sample APKs (needs aapt2 + android.jar)
+
+$(B)/samples/jni.apk: samples/apk-jni/AndroidManifest.xml $(B)/samples/libjnitest.so vm/tests/vmtest.dex
+	$(call build-apk,$(B)/samples/apk-jni,$<,$(B)/samples/libjnitest.so)
+	cp vm/tests/vmtest.dex $(B)/samples/apk-jni/classes.dex
+	cd $(B)/samples/apk-jni && zip -q -X -9 $(abspath $@) classes.dex
 
 # libadd.so + assets/hello.txt, read by test-apk / test-activity.
 $(B)/samples/sample.apk: samples/apk/AndroidManifest.xml samples/apk/hello.txt $(B)/samples/libadd.so

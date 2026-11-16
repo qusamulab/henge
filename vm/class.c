@@ -775,7 +775,7 @@ void vm_throw(Thread *t, const char *desc, const char *msg)
 
 /* ---- VM ---- */
 
-Thread *vm_main_thread(VM *vm) { return vm->threads; }
+Thread *vm_main_thread(VM *vm) { return vm->main_thread; }
 
 static Thread *new_thread(VM *vm)
 {
@@ -790,16 +790,43 @@ static Thread *new_thread(VM *vm)
     return t;
 }
 
+Thread *vm_attach_thread(VM *vm)
+{
+    for (Thread *t = vm->threads; t; t = t->next)
+        if (!t->jni_detached && pthread_equal(t->pthread, pthread_self())) return t;
+    return new_thread(vm);
+}
+
+void vm_enter(Thread *t) { if (!t->lock_depth++) pthread_mutex_lock(&t->vm->lock); }
+void vm_leave(Thread *t) { if (!--t->lock_depth) pthread_mutex_unlock(&t->vm->lock); }
+unsigned vm_suspend(Thread *t)
+{
+    unsigned depth = t->lock_depth;
+    t->lock_depth = 0;
+    if (depth) pthread_mutex_unlock(&t->vm->lock);
+    return depth;
+}
+void vm_resume(Thread *t, unsigned depth)
+{
+    if (depth) pthread_mutex_lock(&t->vm->lock);
+    t->lock_depth = depth;
+}
+
 VM *vm_create(void)
 {
+    if (g_vm && vm_jni_has_libraries(g_vm)) return NULL;
     VM *vm = calloc(1, sizeof *vm);
     if (!vm)
         return NULL;
     g_vm = vm;
-    pthread_mutex_init(&vm->lock, NULL);
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&vm->lock, &attr);
+    pthread_mutexattr_destroy(&attr);
     vm->gc_threshold = 16u << 20;
     vm->sig_to_string = vm_intern(vm, "toString()Ljava/lang/String;");
-    new_thread(vm);
+    vm->main_thread = new_thread(vm);
     vm_register_core_natives(vm);
     vm_register_android_natives(vm);
     size_t size;
@@ -826,10 +853,11 @@ VM *vm_create(void)
         vm_destroy(vm);
         return NULL;
     }
+    if (vm_jni_init(vm) != 0) { vm_destroy(vm); return NULL; }
     return vm;
 }
 
-uint64_t vm_call_static(Thread *t, const char *cls, const char *name, const char *proto, uint32_t *args)
+static uint64_t call_static_locked(Thread *t, const char *cls, const char *name, const char *proto, uint32_t *args)
 {
     Class *c = vm_find_class(t->vm, cls);
     if (!c) {
@@ -846,11 +874,23 @@ uint64_t vm_call_static(Thread *t, const char *cls, const char *name, const char
     return vm_invoke(t, m, args);
 }
 
+uint64_t vm_call_static(Thread *t, const char *cls, const char *name, const char *proto, uint32_t *args)
+{
+    vm_enter(t);
+    uint64_t result = call_static_locked(t, cls, name, proto, args);
+    vm_leave(t);
+    return result;
+}
+
 /* Release everything owned by the VM. DEX input buffers remain owned by the caller. */
 void vm_destroy(VM *vm)
 {
     if (!vm)
         return;
+    /* Native libraries may retain JavaVM even after every worker detaches. Keep this VM
+     * until process exit; the app permits only one guest per process. */
+    if (vm_jni_has_libraries(vm)) return;
+    vm_jni_destroy(vm);
     for (uint32_t r = 1; r < vm->table_size; r++)
         if (((uintptr_t)vm->table[r] & 1) == 0)
             free(vm->table[r]);
